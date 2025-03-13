@@ -8,10 +8,10 @@ def Word [Alphabet] := List Alphabet.α
 def Config (Q: Type*) := ℤ → Q
 
 
-
 structure CellularAutomata where
   Q: Type u
   δ: Q → Q → Q → Q
+  [d: DecidableEq Q]
   [inv_fin: Fintype Q]
 
 def CellularAutomata.next (ca: CellularAutomata) (c: Config ca.Q): Config ca.Q :=
@@ -21,7 +21,6 @@ def CellularAutomata.next_n (ca: CellularAutomata) (n: ℕ) (c: Config ca.Q): Co
   match n with
   | 0 => c
   | n + 1 => ca.next (ca.next_n n c)
-
 
 variable (ca: CellularAutomata)
 
@@ -45,6 +44,12 @@ def LanguageCellularAutomata.embed_word (ca: LanguageCellularAutomata) (word: Wo
     then ca.border
     else ca.embed (word.get ⟨i.toNat, by omega⟩)
 
+def LanguageCellularAutomata.step_n (ca: LanguageCellularAutomata) (word: Word)
+| 0 => ca.embed_word word
+| k + 1 => ca.next (ca.step_n word k)
+
+def LanguageCellularAutomata.step_n' (ca: LanguageCellularAutomata) (n: ℕ) (word: Word): Config ca.Q :=
+  ca.next_n n (ca.embed_word word)
 
 
 class DefinesLanguage (CA: Type u) where
@@ -65,8 +70,8 @@ def halts [DefinesTime CA] (ca: CA): Prop :=
 def t_max' [DefinesTime CA] (ca: CA) (h: halts ca) (n: ℕ): ℕ := sorry
 
 structure FCellularAutomata extends LanguageCellularAutomata where
-  F_pos: Set Q
-  F_neg: Set Q
+  F_pos: Finset Q
+  F_neg: Finset Q
 
 def FCellularAutomata.L (ca: FCellularAutomata): Language α.α := fun w =>
   ∃ n: ℕ, (ca.next_n n (ca.embed_word w)) 0 ∈ ca.F_pos
@@ -81,7 +86,6 @@ instance : Coe FCellularAutomata CellularAutomata where
 
 instance : DefinesTime FCellularAutomata where
   t ca := sorry
-
 
 
 structure tCellularAutomata extends LanguageCellularAutomata where
@@ -126,7 +130,7 @@ inductive LemmaCases where
   | computing
   | accept
   | reject
-  deriving Inhabited, BEq, DecidableEq, Repr, Fintype
+deriving Inhabited, BEq, Repr, Fintype, DecidableEq
 
 def LemmaQ Q := Q × LemmaCases
 
@@ -137,25 +141,45 @@ theorem lemma_2_3_1_F_delta_closed (C: FCellularAutomata):
   ∧ C'.delta_closed_set C'.F_pos
   ∧ C'.delta_closed_set C'.F_neg
 := by
-
   have h := C.inv_fin
-
-  have C': FCellularAutomata := {
+  have x := C.d
+  have [z: DecidableEq (LemmaQ C.Q)]
+  have [x: Fintype (LemmaQ C.Q)]
+  
+  let C': FCellularAutomata := {
     Q := LemmaQ C.Q,
     δ := fun (a, fa) (b, fb) (c, fc) =>
       let r := C.δ a b c; (
         r,
         if fb ≠ LemmaCases.computing then fb else
-        --if r ∈ C.F_pos then LemmaCases.accept
-        --if r ∈ C.F_neg then LemmaCases.reject
+        if r ∈ C.F_pos then LemmaCases.accept else
+        if r ∈ C.F_neg then LemmaCases.reject else
         LemmaCases.computing
       ),
     inv_fin := instFintypeProd C.Q LemmaCases,
     embed := fun a => (C.embed a, LemmaCases.computing),
     border := (C.border, LemmaCases.computing),
-    F_pos := { (a, b): LemmaQ C.Q | b = LemmaCases.accept },
-    F_neg := { (a, b): LemmaQ C.Q | b = LemmaCases.reject },
+    F_pos := { x: LemmaQ C.Q | x.snd = LemmaCases.accept },
+    F_neg := { x: LemmaQ C.Q | x.snd = LemmaCases.reject },
   }
+
+  have h (w: Word) n i: C.step_n w n i = (C'.step_n w n i).fst  := by
+    induction n using LanguageCellularAutomata.step_n.induct generalizing i with
+    | case1 => 
+      simp [LanguageCellularAutomata.embed_word, LanguageCellularAutomata.step_n, C']
+      split
+      next h_1 => simp_all only [C']
+      next h_1 => simp_all only [C']
+
+    | case2 k ih =>
+      unfold LanguageCellularAutomata.step_n CellularAutomata.next
+      rw [ih]
+      rw [ih]
+      rw [ih]
+      simp_all only [ne_eq, ite_not, C']
+      rfl
+    
+      
 
   sorry
 
