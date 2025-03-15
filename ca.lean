@@ -24,7 +24,7 @@ def CellularAutomata.next_n (ca: CellularAutomata) (n: ℕ) (c: Config ca.Q): Co
 
 variable (ca: CellularAutomata)
 
-def CellularAutomata.passive_set (Q: Set ca.Q) := ∀ a (b: Q) c, ca.δ a b c = b
+def CellularAutomata.passive_set (Q: Set ca.Q) := ∀ (a b c: Q), ca.δ a b c = b
 def CellularAutomata.passive (q: ca.Q) := ca.passive_set { q }
 def CellularAutomata.delta_closed_set (Q: Set ca.Q) := ∀ a (b: Q) c, ca.δ a b c ∈ Q
 def CellularAutomata.dead (q: ca.Q) := ca.delta_closed_set {q}
@@ -40,9 +40,9 @@ structure LanguageCellularAutomata extends CellularAutomata where
 
 def LanguageCellularAutomata.embed_word (ca: LanguageCellularAutomata) (word: Word): Config ca.Q :=
   fun i =>
-    if h: i < 0 ∨ i ≥ word.length
-    then ca.border
-    else ca.embed (word.get ⟨i.toNat, by omega⟩)
+    if h: i ≥ 0 ∧ i < word.length
+    then ca.embed (word.get ⟨i.toNat, by omega⟩)
+    else ca.border
 
 def LanguageCellularAutomata.step_n (ca: LanguageCellularAutomata) (word: Word)
 | 0 => ca.embed_word word
@@ -125,6 +125,151 @@ def RT := tCellularAutomatas & t { fun n => n - 1 }
 
 theorem X: ℒ (RT) = ℒ (FCellularAutomatas & OCA_L) := sorry
 
+--def finset_set_fintype { α } [h: Fintype α] (s: Set α): Finset α
+
+
+
+inductive lemma_1_Q (Q: Type u) where
+  | border
+  | state (s border: Q)
+deriving Inhabited, BEq, Repr, Fintype, DecidableEq
+
+def lemma_1_Q.unwrap (b: Q)
+| border => b
+| state s _b => s
+
+def lemma_1_Q.unwrap2 (b: Q)
+| border => b
+| state _s b => b
+
+open lemma_1_Q
+
+def lemma_1_c (C: FCellularAutomata): FCellularAutomata := 
+  let _inv_fin := C.inv_fin;
+  let _d := C.d;
+
+  {
+    Q := lemma_1_Q C.Q,
+    δ := fun
+        | state st br,  b,            c            => state (C.δ st             (b.unwrap br)   (c.unwrap br)) (C.δ br br br)
+        | a,            state st br,  c            => state (C.δ (a.unwrap br)  st              (c.unwrap br)) (C.δ br br br)
+        | a,            b,            state st br  => state (C.δ (a.unwrap br)  (b.unwrap br)   st           ) (C.δ br br br)
+        | border,       border,       border       => border
+
+    embed := fun a => state (C.embed a) C.border,
+    border := border,
+    F_pos := { x | true = match x with
+      | state s1 _b1 => s1 ∈ C.F_pos
+      | _ => C.border ∈ C.F_pos
+    },
+    F_neg := { x | true = match x with
+      | state s1 _b1 => s1 ∈ C.F_neg
+      | _ => C.border ∈ C.F_neg
+    },
+  }
+
+def CellularAutomata.pow_t (C: CellularAutomata) (q: C.Q)
+| 0 => q
+| n + 1 => let x := CellularAutomata.pow_t C q n; C.δ x x x
+
+
+theorem next_initial { C: LanguageCellularAutomata } { q: C.Q } { w: Word } { t: ℕ } (h1: C.initial q) (h2: C.next (C.step_n w t) i = q): C.step_n w t i = q :=
+  by 
+  subst h2
+  apply h1
+  · rfl
+
+theorem lemma_2_4_1_passive_initial_border (C: FCellularAutomata.{u}):
+  ∃ C': FCellularAutomata.{u},
+    C'.L = C.L
+  ∧ C'.passive C'.border
+  ∧ C'.initial C'.border
+  ∧ DefinesTime.t C' = DefinesTime.t C
+  --∧ (C.left_independent ↔ C'.left_independent)
+  --∧ (C.right_independent ↔ C'.right_independent)
+  := by
+  let C' := lemma_1_c C
+  use C'
+  
+  have c1: C'.passive C'.border := by
+    simp [CellularAutomata.passive, CellularAutomata.passive_set, C', lemma_1_c]
+  have c2: C'.initial C'.border := by
+    unfold CellularAutomata.initial C' lemma_1_c
+    intro a b c a_1
+    simp_all only [C']
+    split at a_1
+    next x x_1 x_2 st br => simp_all only [reduceCtorEq, C']
+    next x x_1 x_2 st br x_3 => simp_all only [imp_false, reduceCtorEq, C']
+    next x x_1 x_2 st br x_3 x_4 => simp_all only [imp_false, reduceCtorEq, C']
+    next x x_1 x_2 => simp_all only [C']
+  
+
+  have h (w: Word) t i: (C'.step_n w t i) = if i ≥ -t ∧ i < w.length + t then state (C.step_n w t i) (C.pow_t C.border t) else border := by
+    induction t using LanguageCellularAutomata.step_n.induct generalizing i with
+    | case1 =>
+      simp [LanguageCellularAutomata.step_n, lemma_1_Q.unwrap, LanguageCellularAutomata.step_n, CellularAutomata.pow_t, LanguageCellularAutomata.embed_word, C', lemma_1_c]
+      simp_all only [and_self, ↓reduceDIte, C']
+      split
+      next h => simp_all only [C']
+      next h => simp_all only [not_and, not_lt, C']
+    | case2 t ih =>
+      simp [LanguageCellularAutomata.step_n, CellularAutomata.next]
+      rw [ih, ih, ih]
+
+      by_cases h: (i ≥ -(t - 1) ∧ i < w.length + t - 1)
+      
+      have x1: i - 1 ≥ -↑t ∧ i - 1 < ↑(List.length w) + ↑t := by omega
+      have x2: i ≥ -↑t ∧ i < ↑(List.length w) + ↑t := by omega
+      have x3: i + 1 ≥ -↑t ∧ i + 1 < ↑(List.length w) + ↑t := by omega
+      have x4: i ≥ -↑(t + 1) ∧ i < ↑(List.length w) + ↑(t + 1) := by omega
+
+      simp_all only [ge_iff_le, neg_sub, tsub_le_iff_right, neg_le_sub_iff_le_add, true_and, Int.reduceNeg, and_self, ↓reduceIte, C']
+      obtain ⟨left, right⟩ := h
+      obtain ⟨left_1, right_1⟩ := x2
+      obtain ⟨left_2, right_2⟩ := x3
+      obtain ⟨left_3, right_3⟩ := x4
+      simp_all only [Nat.succ_eq_add_one, Nat.cast_add, Nat.cast_one, neg_add_rev, Int.reduceNeg,
+        add_neg_le_iff_le_add, and_self, ↓reduceIte, C']
+      rfl
+
+
+      
+  
+  /-
+   C.step_n w t i = (C'.step_n w t i).unwrap (C.pow_t C.border t) ∧ (C.pow_t C.border t) = (C'.step_n w t i).unwrap2 (C.step_n w t i) := by
+    induction t using LanguageCellularAutomata.step_n.induct generalizing i with
+    | case1 =>
+      simp [LanguageCellularAutomata.step_n, lemma_1_Q.unwrap, LanguageCellularAutomata.step_n, CellularAutomata.pow_t, LanguageCellularAutomata.embed_word]
+      simp_all only [C', lemma_1_c]
+      split
+      next h =>
+        simp_all only [true_and, C']
+        rfl
+      next h =>
+        simp_all only [true_and, C']
+        rfl
+
+    | case2 t ih =>
+      let bt := (C.pow_t C.border t)
+      have h : bt = (C.pow_t C.border t) := by simp [bt]
+      rw [←h] at ih
+      
+      unfold CellularAutomata.pow_t
+      rw [←h]
+      simp [LanguageCellularAutomata.step_n]
+      constructor
+-/
+
+
+
+
+
+      --simp [CellularAutomata.pow_t, C', LanguageCellularAutomata.step_n, LanguageCellularAutomata.embed_word, lemma_1_c, lemma_1_Q.unwrap]
+      --aesop?
+
+  sorry
+
+
 
 inductive LemmaCases where
   | computing
@@ -132,22 +277,11 @@ inductive LemmaCases where
   | reject
 deriving Inhabited, BEq, Repr, Fintype, DecidableEq
 
-def LemmaQ Q := Q × LemmaCases
-
-theorem lemma_2_3_1_F_delta_closed (C: FCellularAutomata):
-  ∃ C': FCellularAutomata,
-    C'.L = C.L
-  ∧ DefinesTime.t C' = DefinesTime.t C
-  ∧ C'.delta_closed_set C'.F_pos
-  ∧ C'.delta_closed_set C'.F_neg
-:= by
-  have h := C.inv_fin
-  have x := C.d
-  have [z: DecidableEq (LemmaQ C.Q)]
-  have [x: Fintype (LemmaQ C.Q)]
-  
-  let C': FCellularAutomata := {
-    Q := LemmaQ C.Q,
+def lemma_C' (C: FCellularAutomata): FCellularAutomata := 
+  let _h := C.inv_fin;
+  let _x := C.d;
+  {
+    Q := C.Q × LemmaCases,
     δ := fun (a, fa) (b, fb) (c, fc) =>
       let r := C.δ a b c; (
         r,
@@ -159,14 +293,24 @@ theorem lemma_2_3_1_F_delta_closed (C: FCellularAutomata):
     inv_fin := instFintypeProd C.Q LemmaCases,
     embed := fun a => (C.embed a, LemmaCases.computing),
     border := (C.border, LemmaCases.computing),
-    F_pos := { x: LemmaQ C.Q | x.snd = LemmaCases.accept },
-    F_neg := { x: LemmaQ C.Q | x.snd = LemmaCases.reject },
+    F_pos := { x: C.Q × LemmaCases | x.snd = LemmaCases.accept },
+    F_neg := { x: C.Q × LemmaCases | x.snd = LemmaCases.reject },
   }
+
+theorem lemma_2_3_1_F_delta_closed (C: FCellularAutomata):
+  ∃ C': FCellularAutomata,
+    C'.L = C.L
+  ∧ DefinesTime.t C' = DefinesTime.t C
+  ∧ ∀ f: C'.F_pos, C'.dead f
+  ∧ ∀ f: C'.F_neg, C'.dead f
+:= by
+
+  let C': FCellularAutomata := lemma_C' C
 
   have h (w: Word) n i: C.step_n w n i = (C'.step_n w n i).fst  := by
     induction n using LanguageCellularAutomata.step_n.induct generalizing i with
-    | case1 => 
-      simp [LanguageCellularAutomata.embed_word, LanguageCellularAutomata.step_n, C']
+    | case1 =>
+      simp [LanguageCellularAutomata.embed_word, LanguageCellularAutomata.step_n, C', lemma_C']
       split
       next h_1 => simp_all only [C']
       next h_1 => simp_all only [C']
@@ -178,18 +322,7 @@ theorem lemma_2_3_1_F_delta_closed (C: FCellularAutomata):
       rw [ih]
       simp_all only [ne_eq, ite_not, C']
       rfl
-    
       
 
   sorry
 
-
-theorem lemma_2_4_1_passive_initial_border (C: FCellularAutomata):
-  ∃ C': FCellularAutomata,
-    C'.L = C.L
-  ∧ C'.passive C'.border
-  ∧ C'.initial C'.border
-  ∧ DefinesTime.t C' = DefinesTime.t C
-  ∧ (C.left_independent ↔ C'.left_independent)
-  ∧ (C.right_independent ↔ C'.right_independent)
-  := sorry
