@@ -1,5 +1,10 @@
 import Mathlib
 
+theorem my_ite_true { β: Type } { P: Prop } [Decidable P] (h: P) (a b: β): (if P then a else b) = a := by
+  simp_all only [↓reduceIte]
+
+
+
 class Alphabet where
   (α: Type 0)
 
@@ -179,6 +184,11 @@ theorem next_initial { C: LanguageCellularAutomata } { q: C.Q } { w: Word } { t:
   apply h1
   · rfl
 
+abbrev Word.cone (w: Word) (t: ℕ) (i: ℤ) := -t ≤ i ∧ i < w.length + t
+
+
+
+
 theorem lemma_2_4_1_passive_initial_border (C: FCellularAutomata.{u}):
   ∃ C': FCellularAutomata.{u},
     C'.L = C.L
@@ -193,6 +203,7 @@ theorem lemma_2_4_1_passive_initial_border (C: FCellularAutomata.{u}):
   
   have c1: C'.passive C'.border := by
     simp [CellularAutomata.passive, CellularAutomata.passive_set, C', lemma_1_c]
+
   have c2: C'.initial C'.border := by
     unfold CellularAutomata.initial C' lemma_1_c
     intro a b c a_1
@@ -203,69 +214,30 @@ theorem lemma_2_4_1_passive_initial_border (C: FCellularAutomata.{u}):
     next x x_1 x_2 st br x_3 x_4 => simp_all only [imp_false, reduceCtorEq, C']
     next x x_1 x_2 => simp_all only [C']
   
-
-  have h (w: Word) t i: (C'.step_n w t i) = if i ≥ -t ∧ i < w.length + t then state (C.step_n w t i) (C.pow_t C.border t) else border := by
+  have h (w: Word) t i: (C'.step_n w t i) = if w.cone t i then state (C.step_n w t i) (C.pow_t C.border t) else border := by
     induction t using LanguageCellularAutomata.step_n.induct generalizing i with
     | case1 =>
-      simp [LanguageCellularAutomata.step_n, lemma_1_Q.unwrap, LanguageCellularAutomata.step_n, CellularAutomata.pow_t, LanguageCellularAutomata.embed_word, C', lemma_1_c]
+      simp [LanguageCellularAutomata.step_n, lemma_1_Q.unwrap, LanguageCellularAutomata.step_n, CellularAutomata.pow_t, LanguageCellularAutomata.embed_word, C', lemma_1_c, Word.cone]
       simp_all only [and_self, ↓reduceDIte, C']
       split
       next h => simp_all only [C']
       next h => simp_all only [not_and, not_lt, C']
     | case2 t ih =>
-      simp [LanguageCellularAutomata.step_n, CellularAutomata.next]
-      rw [ih, ih, ih]
+      unfold LanguageCellularAutomata.step_n
+      unfold CellularAutomata.next
 
-      by_cases h: (i ≥ -(t - 1) ∧ i < w.length + t - 1)
-      
-      have x1: i - 1 ≥ -↑t ∧ i - 1 < ↑(List.length w) + ↑t := by omega
-      have x2: i ≥ -↑t ∧ i < ↑(List.length w) + ↑t := by omega
-      have x3: i + 1 ≥ -↑t ∧ i + 1 < ↑(List.length w) + ↑t := by omega
-      have x4: i ≥ -↑(t + 1) ∧ i < ↑(List.length w) + ↑(t + 1) := by omega
-
-      simp_all only [ge_iff_le, neg_sub, tsub_le_iff_right, neg_le_sub_iff_le_add, true_and, Int.reduceNeg, and_self, ↓reduceIte, C']
-      obtain ⟨left, right⟩ := h
-      obtain ⟨left_1, right_1⟩ := x2
-      obtain ⟨left_2, right_2⟩ := x3
-      obtain ⟨left_3, right_3⟩ := x4
-      simp_all only [Nat.succ_eq_add_one, Nat.cast_add, Nat.cast_one, neg_add_rev, Int.reduceNeg,
-        add_neg_le_iff_le_add, and_self, ↓reduceIte, C']
-      rfl
-
-
-      
-  
-  /-
-   C.step_n w t i = (C'.step_n w t i).unwrap (C.pow_t C.border t) ∧ (C.pow_t C.border t) = (C'.step_n w t i).unwrap2 (C.step_n w t i) := by
-    induction t using LanguageCellularAutomata.step_n.induct generalizing i with
-    | case1 =>
-      simp [LanguageCellularAutomata.step_n, lemma_1_Q.unwrap, LanguageCellularAutomata.step_n, CellularAutomata.pow_t, LanguageCellularAutomata.embed_word]
-      simp_all only [C', lemma_1_c]
-      split
-      next h =>
-        simp_all only [true_and, C']
-        rfl
-      next h =>
-        simp_all only [true_and, C']
-        rfl
-
-    | case2 t ih =>
       let bt := (C.pow_t C.border t)
       have h : bt = (C.pow_t C.border t) := by simp [bt]
       rw [←h] at ih
+
+      rw [ih, ih, ih]
+
+      by_cases h: (w.cone t.succ i)
       
-      unfold CellularAutomata.pow_t
-      rw [←h]
-      simp [LanguageCellularAutomata.step_n]
-      constructor
--/
+      rw [my_ite_true h]
 
-
-
-
-
-      --simp [CellularAutomata.pow_t, C', LanguageCellularAutomata.step_n, LanguageCellularAutomata.embed_word, lemma_1_c, lemma_1_Q.unwrap]
-      --aesop?
+      sorry
+      sorry
 
   sorry
 
