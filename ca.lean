@@ -9,9 +9,15 @@ noncomputable def min_nat (set: Set ℕ) :=
   then some (Nat.find h)
   else none
 
+theorem min_nat_of_set { p: ℕ → Prop } (h: p 0): min_nat { t | p t } = some 0 := by
+  unfold min_nat
+  have h3: ∃ n, n ∈ { t | p t } := by
+    use 0
+    exact h
+  simp_all [h3, h]
+
 theorem set_iff {α: Type*} (p1 p2: α → Prop): {w | p1 w} = {w | p2 w} ↔ (∀ w, p1 w ↔ p2 w) := by
   simp [Set.ext_iff]
-
 
 ----------------------------------------------------------------
 
@@ -91,10 +97,10 @@ def t_max' [DefinesTime CA] (ca: CA) (h: halts ca) (n: ℕ): ℕ := sorry
 
 
 structure FCellularAutomata extends LanguageCellularAutomata where
-  state_accepts: Q -> Option Bool
   -- none: continue
   -- some true: accept
   -- some false: reject
+  state_accepts: Q -> Option Bool
 
 
 noncomputable def FCellularAutomata.time (C: FCellularAutomata) (w: Word): Option ℕ :=
@@ -175,6 +181,8 @@ def CellularAutomata.pow_t_eq (C: CellularAutomata) (q: C.Q) (n: ℕ): q^n = Cel
 @[simp]
 def CellularAutomata.pow_t_eq_0 {C: CellularAutomata} (q: C.Q): q^0 = q := by rfl
 
+def CellularAutomata.pow_t_eq_1 (C: CellularAutomata) (q: C.Q): q^1 = C.δ q q q := by rfl
+
 def CellularAutomata.pow_t_eq_succ {C: CellularAutomata} (q: C.Q): q^(n+1) = (q^n)^1 := by rfl
 
 
@@ -196,13 +204,37 @@ open lemma_1_Q
 infix:50 " ?? " => unwrap
 
 protected def FCellularAutomata.state_pow_accepts' { C: FCellularAutomata } (q: C.Q)
-| 0 => C.state_accepts q
+| 0 => false
 | n + 1 => match C.state_accepts q with
-  | some v => some v
+  | some v => v
   | none => C.state_pow_accepts' (q^1) n
 
-def FCellularAutomata.state_pow_accepts { C: FCellularAutomata } (q: C.Q): Option Bool :=
+def FCellularAutomata.state_pow_accepts { C: FCellularAutomata } (q: C.Q): Bool :=
   C.state_pow_accepts' q (C.inv_fin_q.card)
+
+theorem FCellularAutomata.accepts_empty {C: FCellularAutomata}: C.accepts [] ↔ C.state_pow_accepts C.border = true := by
+  unfold FCellularAutomata.accepts
+  sorry
+
+@[simp]
+theorem FCellularAutomata.passive_q_pow_eq_q {C: FCellularAutomata} {q: C.Q} (h: C.passive q): q^1 = q := by
+  simp_all [h, CellularAutomata.passive_set, CellularAutomata.passive, CellularAutomata.pow_t_eq_1]
+
+@[simp]
+theorem FCellularAutomata.state_pow_accepts_of_passive {C: FCellularAutomata} {q: C.Q} (h: C.passive q):
+    C.state_pow_accepts q = (C.state_accepts q = some true) := by
+  sorry
+
+theorem FCellularAutomata.accepts_empty_passive {C: FCellularAutomata} (h: C.passive C.border):
+    C.accepts [] ↔ C.state_accepts C.border = some true := by
+  rw [FCellularAutomata.accepts_empty]
+  rw [FCellularAutomata.state_pow_accepts_of_passive h]
+
+
+
+def state_accepts (C: FCellularAutomata)
+| [ s1 | _b1 ] => C.state_accepts s1
+| border => C.state_pow_accepts C.border
 
 def lemma_1_c (C: FCellularAutomata): FCellularAutomata :=
   let _inv_fin_q := C.inv_fin_q;
@@ -217,9 +249,7 @@ def lemma_1_c (C: FCellularAutomata): FCellularAutomata :=
       | border,       border,     border          => border
     embed a := state (C.embed a) C.border,
     border := border,
-    state_accepts
-      | [ s1 | _b1 ] => C.state_accepts s1
-      | border => C.state_pow_accepts C.border
+    state_accepts := state_accepts C
   }
 
 
@@ -386,7 +416,8 @@ theorem lemma_2_4_1_passive_initial_border (C: FCellularAutomata.{u}):
         simp [unwrap]
         rfl
 
-  have h w: w ∈ C'.L ↔ w ∈ C.L := by
+  have h: C'.L = C.L := by
+    ext w
     cases wlen: w.length
 
     case zero =>
@@ -394,26 +425,15 @@ theorem lemma_2_4_1_passive_initial_border (C: FCellularAutomata.{u}):
       suffices : C'.accepts w ↔ C.accepts w
       exact this
       rw [List.length_eq_zero_iff] at wlen
+      rw [wlen]
+      rw [FCellularAutomata.accepts_empty_passive c1]
+      rw [FCellularAutomata.accepts_empty]
+      simp [C', lemma_1_c, state_accepts]
 
-      unfold FCellularAutomata.accepts
-
-      have : C'.time w = some 0 := by
-        unfold FCellularAutomata.time
-
-        have : C'.state_accepts (C'.comp w 0 0) = C.state_pow_accepts C.border := by
-          simp [C', lemma_1_c]
-          sorry
-
-
-
-        sorry
-
+    case succ =>
       sorry
 
-    sorry
-
-  sorry
-
+  simp [c1, c2, h]
 
 
 
