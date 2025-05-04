@@ -19,8 +19,6 @@ def find_some_bounded { α } (f: ℕ → Option α): ℕ -> Option α
   | some val => some val
   | none => find_some_bounded (pop_nat_fn f) n
 
--- set_option pp.proofs true
-
 
 lemma find_some_eq_none_iff { α } { f: ℕ → Option α }: find_some f = none ↔ ∀ k, f k = none := by
   unfold find_some
@@ -35,36 +33,81 @@ lemma find_some_eq_none_iff { α } { f: ℕ → Option α }: find_some f = none 
   case neg h =>
     simp_all [h]
 
-lemma find_some_eq_some_iff { α } { f: ℕ → Option α } (val): find_some f = some val ↔ ∃ k, f k = some val ↔ ∀ j, j < k → f k = none := by
+lemma find_some_eq_some_iff { α } { f: ℕ → Option α } (val): find_some f = some val ↔ ∃ k, f k = some val ∧ ∀ j, j < k → f j = none := by
+  let _dec := Classical.dec;
   unfold find_some
-  split_ifs
-  case pos h =>
-    simp only [reduceDIte, h, reduceCtorEq, false_iff, not_forall, Option.some.injEq]
+  simp only [Option.some_get, Option.dite_none_right_eq_some]
+
+  constructor
+  · intro h
+    let ⟨h', h⟩ := h
+    let ⟨n, h''⟩ := h'
+
+    use Nat.find h'
+    simp_all [Nat.find_min h']
+
+  · intro h
+    let ⟨k, hk⟩ := h
+
+    have h'': ∃ n, (f n).isSome = true := by
+      use k
+      simp [hk.1]
+
+    use h''
+
+    have hk2 : (f k).isSome = true ∧ ∀ j < k, (f j).isSome ≠ true := by simp_all
+
+    rw [←Nat.find_eq_iff h''] at hk2
+    simp_all
+
+lemma unroll_all (m) (p: ℕ → Prop): (∀ j < (m + 1), p j) ↔ p 0 ∧ ∀ k < m, p (k + 1) := by
+  apply Iff.intro
+  · intro a
+    simp_all only [lt_add_iff_pos_left, add_pos_iff, Nat.lt_one_iff, pos_of_gt, or_true, add_lt_add_iff_right,
+      implies_true, and_self]
+  · intro a j a_1
+    obtain ⟨left, right⟩ := a
+    have right := right (j - 1)
+    cases j
+    case zero => exact left
+    case succ n => simp_all
 
 
+lemma find_some_bounded_eq_none_iff { α } { f: ℕ → Option α } (k): find_some_bounded f k = none ↔ ∀ j < k, f j = none := by
+  induction k generalizing f
+  case zero => simp [find_some_bounded]
+  case succ n ih =>
+    unfold find_some_bounded
+    have ih := @ih (pop_nat_fn f)
+    cases c: f 0
+    · simp [ih, pop_nat_fn, unroll_all n (fun k => f k = none), c]
+    · simp
+      use 0
+      simp [c]
 
 
-    set x := (Eq.mpr_prop (eq_true h) (of_eq_true (Eq.refl True))) with hx
-    set m := Nat.find x with mx
-    conv =>
-      pattern Nat.find _
-
-
-
-
-
-
-
-
-lemma find_some_eq_none_iff_find_some_bounded_eq_none { α } { f: ℕ → Option α }: ∀ k, find_some_bounded f k = none ↔ find_some f = none := by
-  rw [find_some_eq_none_iff]
-
+lemma find_some_bounded_some_iff { α } { f: ℕ → Option α } (k) (val): find_some_bounded f k = some val ↔ ∃ j < k, f j = some val ∧ ∀ m < j, f m = none := by
   sorry
+
+
+
+lemma find_some_eq_none_iff_find_some_bounded_eq_none { α } { f: ℕ → Option α }: (∀ k, find_some_bounded f k = none) ↔ find_some f = none := by
+  rw [find_some_eq_none_iff]
+  conv =>
+    pattern find_some_bounded _ _ = _
+    rw [find_some_bounded_eq_none_iff]
+  apply Iff.intro
+  · intro a k
+    simp [a (k+1) k]
+  · intro a k j a_1
+    simp_all only
 
 
 lemma find_some_of_find_some_bounded { α } { f: ℕ → Option α } {val} (h: find_some_bounded f k = some val): find_some f = some val := by
 
-  sorry
+  rw [find_some_eq_some_iff]
+
+  rw [find_some_bound]
 
 lemma find_some_bounded_eq_none_iff_find_some_eq_none { α } { f: ℕ → Option α } (val): ∃ k, find_some_bounded f k = some val ↔ find_some f = some val := by
   sorry
