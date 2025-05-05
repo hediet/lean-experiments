@@ -1,7 +1,7 @@
 
 import Mathlib
 
-open Set List
+open Set List Nat
 
 structure Indexed (α: Type) where
   val: α
@@ -64,7 +64,7 @@ lemma find_some_eq_some_iff { α } { f: ℕ → Option α } (val): find_some f =
     rw [←Nat.find_eq_iff h''] at hk2
     simp_all
 
-lemma unroll_all (m) (p: ℕ → Prop): (∀ j < (m + 1), p j) ↔ p 0 ∧ ∀ j < m, p (j + 1) := by
+lemma unroll_all (m) (b: ℕ → Prop): (∀ j < (m + 1), b j) ↔ b 0 ∧ ∀ j < m, b (j + 1) := by
   apply Iff.intro
   · intro a
     simp_all only [lt_add_iff_pos_left, add_pos_iff, Nat.lt_one_iff, pos_of_gt, or_true, add_lt_add_iff_right,
@@ -76,24 +76,47 @@ lemma unroll_all (m) (p: ℕ → Prop): (∀ j < (m + 1), p j) ↔ p 0 ∧ ∀ j
     case zero => exact left
     case succ n => simp_all
 
+lemma unroll_all2 (b) (p: ℕ → Prop): (∀ j, b ≤ j → p j) ↔ p b ∧ ∀ j, b + 1 ≤ j → p j := by
+
+  apply Iff.intro
+  · intro a
+    simp_all only [le_refl, true_and]
+    intro j a_1
+    have y: b ≤ j := by omega
+    simp [a j y]
+    
+  · intro a j a_1
+    obtain ⟨left, right⟩ := a
+    have right := right j
+    by_cases c: b + 1 ≤ j
+    · exact right c
+    · have h: j = b := by omega
+      simp_all
+
+
 private lemma find_some_bounded_acc_eq_none_iff { α } { f: ℕ → Option α } (s len): find_some_bounded_acc f s len = none ↔ ∀ j ∈ Set.Ico s (s + len), f j = none := by
   induction len generalizing s
   case zero =>
     unfold find_some_bounded_acc
     simp [imp_false, true_iff]
-    
-    
+
   case succ n ih =>
     unfold find_some_bounded_acc
     have ih := ih (s+1)
     cases c: f s
     · simp [ih]
+      conv =>
+        arg 2
+        rw [unroll_all2]
       
-      have x := unroll_all n (fun j => s ≤ j → f j = none)
-      simp [x]
+      simp_all [c]
+      have h: s + (n + 1) = s + 1 + n := by omega
+      simp [h]
+      
     · simp
-      use 0
+      use s
       simp [c]
+
 
 lemma find_some_bounded_eq_none_iff { α } { f: ℕ → Option α } (k): find_some_bounded f k = none ↔ ∀ j < k, f j = none := by
   induction k generalizing f
