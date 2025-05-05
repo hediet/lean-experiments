@@ -3,24 +3,27 @@ import Mathlib
 
 open Set List
 
-noncomputable def find_some { α } (f: ℕ → Option α): Option α :=
+structure Indexed (α: Type) where
+  val: α
+  idx: ℕ
+
+noncomputable def find_some { α } (f: ℕ → Option α): Option (Indexed α) :=
   let _dec := Classical.dec;
   if h: ∃ n, (f n).isSome = true
-  then (f (Nat.find h)).get (Nat.find_spec h)
+  then let idx := Nat.find h; some ⟨ (f idx).get (Nat.find_spec h), idx ⟩ 
   else none
 
-
-def pop_nat_fn {α} (f: ℕ → α) := fun n => f (n + 1)
-
-def find_some_bounded { α } (f: ℕ → Option α): ℕ -> Option α
+private def find_some_bounded_acc { α } (f: ℕ → Option α) (idx: ℕ): ℕ -> Option (Indexed α)
 | 0 => none
 | n + 1 =>
-  match f 0 with
-  | some val => some val
-  | none => find_some_bounded (pop_nat_fn f) n
+  match f idx with
+  | some val => some ⟨ val, idx ⟩
+  | none => find_some_bounded_acc f (idx + 1) n
+
+def find_some_bounded { α } (f: ℕ → Option α) (k: ℕ) := find_some_bounded_acc f 0 k
 
 
-lemma find_some_eq_none_iff { α } { f: ℕ → Option α }: find_some f = none ↔ ∀ k, f k = none := by
+lemma find_some_eq_none_iff { α } { f: ℕ → Option α }: find_some f = none ↔ ∀ i, f i = none := by
   unfold find_some
   split_ifs
   case pos h =>
@@ -33,7 +36,7 @@ lemma find_some_eq_none_iff { α } { f: ℕ → Option α }: find_some f = none 
   case neg h =>
     simp_all [h]
 
-lemma find_some_eq_some_iff { α } { f: ℕ → Option α } (val): find_some f = some val ↔ ∃ k, f k = some val ∧ ∀ j, j < k → f j = none := by
+lemma find_some_eq_some_iff { α } { f: ℕ → Option α } (val): find_some f = some val ↔ f val.idx = some val.val ∧ ∀ i < val.idx, f i = none := by
   let _dec := Classical.dec;
   unfold find_some
   simp only [Option.some_get, Option.dite_none_right_eq_some]
@@ -42,25 +45,26 @@ lemma find_some_eq_some_iff { α } { f: ℕ → Option α } (val): find_some f =
   · intro h
     let ⟨h', h⟩ := h
     let ⟨n, h''⟩ := h'
-
-    use Nat.find h'
-    simp_all [Nat.find_min h']
+    simp only [Option.some.injEq] at h
+    simp only [←h]
+    simp_all []
 
   · intro h
     let ⟨k, hk⟩ := h
 
     have h'': ∃ n, (f n).isSome = true := by
-      use k
-      simp [hk.1]
+      use val.idx
+      simp [k]
 
     use h''
+    simp
 
-    have hk2 : (f k).isSome = true ∧ ∀ j < k, (f j).isSome ≠ true := by simp_all
+    have hk2 : (f val.idx).isSome = true ∧ ∀ j < val.idx, (f j).isSome ≠ true := by simp_all
 
     rw [←Nat.find_eq_iff h''] at hk2
     simp_all
 
-lemma unroll_all (m) (p: ℕ → Prop): (∀ j < (m + 1), p j) ↔ p 0 ∧ ∀ k < m, p (k + 1) := by
+lemma unroll_all (m) (p: ℕ → Prop): (∀ j < (m + 1), p j) ↔ p 0 ∧ ∀ j < m, p (j + 1) := by
   apply Iff.intro
   · intro a
     simp_all only [lt_add_iff_pos_left, add_pos_iff, Nat.lt_one_iff, pos_of_gt, or_true, add_lt_add_iff_right,
@@ -72,10 +76,28 @@ lemma unroll_all (m) (p: ℕ → Prop): (∀ j < (m + 1), p j) ↔ p 0 ∧ ∀ k
     case zero => exact left
     case succ n => simp_all
 
+private lemma find_some_bounded_acc_eq_none_iff { α } { f: ℕ → Option α } (s len): find_some_bounded_acc f s len = none ↔ ∀ j ∈ Set.Ico s (s + len), f j = none := by
+  induction len generalizing s
+  case zero =>
+    unfold find_some_bounded_acc
+    simp [imp_false, true_iff]
+    
+    
+  case succ n ih =>
+    unfold find_some_bounded_acc
+    have ih := ih (s+1)
+    cases c: f s
+    · simp [ih]
+      
+      have x := unroll_all n (fun j => s ≤ j → f j = none)
+      simp [x]
+    · simp
+      use 0
+      simp [c]
 
 lemma find_some_bounded_eq_none_iff { α } { f: ℕ → Option α } (k): find_some_bounded f k = none ↔ ∀ j < k, f j = none := by
   induction k generalizing f
-  case zero => simp [find_some_bounded]
+  case zero => simp [find_some_bounded, find_some_bounded_acc]
   case succ n ih =>
     unfold find_some_bounded
     have ih := @ih (pop_nat_fn f)
@@ -86,7 +108,7 @@ lemma find_some_bounded_eq_none_iff { α } { f: ℕ → Option α } (k): find_so
       simp [c]
 
 
-lemma find_some_bounded_some_iff { α } { f: ℕ → Option α } (k) (val): find_some_bounded f k = some val ↔ ∃ j < k, f j = some val ∧ ∀ m < j, f m = none := by
+lemma find_some_bounded_some_iff { α } { f: ℕ → Option α } (k) (val): find_some_bounded f k = some val ↔ ∃ i < k, f i = some val ∧ ∀ j < i, f j = none := by
   sorry
 
 
@@ -111,6 +133,8 @@ lemma find_some_of_find_some_bounded { α } { f: ℕ → Option α } {val} (h: f
 
 lemma find_some_bounded_eq_none_iff_find_some_eq_none { α } { f: ℕ → Option α } (val): ∃ k, find_some_bounded f k = some val ↔ find_some f = some val := by
   sorry
+
+
 
 
 structure RepeatingFunction (f: ℕ → M) where
