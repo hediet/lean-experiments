@@ -169,7 +169,7 @@ private lemma find_some_bounded_acc_eq_some_iff { α } { f: ℕ → Option α } 
 
 
 
-lemma find_some_bounded_some_iff { α } { f: ℕ → Option α } (k) (val): find_some_bounded f k = some val ↔ f val.idx = some val.val ∧ val.idx < k ∧ ∀ j < val.idx, f j = none := by
+lemma find_some_bounded_eq_some_iff { α } { f: ℕ → Option α } (k) (val): find_some_bounded f k = some val ↔ f val.idx = some val.val ∧ val.idx < k ∧ ∀ j < val.idx, f j = none := by
   simp [find_some_bounded, find_some_bounded_acc_eq_some_iff]
 
 
@@ -187,20 +187,23 @@ lemma find_some_eq_none_iff_find_some_bounded_eq_none { α } { f: ℕ → Option
 
 
 lemma find_some_of_find_some_bounded { α } { f: ℕ → Option α } {val} (h: find_some_bounded f k = some val): find_some f = some val := by
-
   rw [find_some_eq_some_iff]
-
-  rw [find_some_bound]
+  rw [find_some_bounded_eq_some_iff] at h
+  simp_all
 
 lemma find_some_bounded_eq_none_iff_find_some_eq_none { α } { f: ℕ → Option α } (val): ∃ k, find_some_bounded f k = some val ↔ find_some f = some val := by
-  sorry
+  rw [find_some_eq_some_iff]
+  simp [find_some_bounded_eq_some_iff]
+  use val.idx + 1
+  simp
+
 
 
 
 
 structure RepeatingFunction (f: ℕ → M) where
   k: ℕ
-  inv: f '' univ = f '' { n | n ≤ k }
+  inv: f '' univ = f '' { n | n < k }
 
 
 
@@ -216,9 +219,10 @@ lemma iterative_function_is_cyclic {M} (f: ℕ → M) (h1: iterative_function f)
 
 
 
-def k' (k a b: ℕ) := if k <= a then k else a + ((k-a) % b)
+def k' (k a b: ℕ) := if k ≤ a then k else a + ((k-a) % b)
 
-lemma apply_iterated_mod {M} (h: Fintype M): ∃ a b, a + b ≤ h.card + 1 ∧ ∀ k: (apply_iterated f m) k = (apply_iterated f m) (k' k a b) :=
+
+lemma apply_iterated_mod {M} (h: Fintype M): ∃ a b, a + (b-1) ≤ h.card ∧ ∀ k: (apply_iterated f m) k = (apply_iterated f m) (k' k a b) := by
 /-
 
 ∃ k1 ≠ k2 ∈ {0...h.card+1}: g k1 = g k2
@@ -236,7 +240,9 @@ g (k1 + j) = g (k2 + j)
 a + b
 
 -/
-sorry
+  sorry
+
+
 
 
 def repeating_function_of_iterate_fin_type { M } (h: Fintype M) { f: M → M } (m: M): RepeatingFunction (apply_iterated f m) := {
@@ -260,10 +266,34 @@ def repeating_function_of_composition { α β } { g: α → β } { f: ℕ → α
 }
 
 
+lemma repeating_function_forall {α} { f: ℕ → α } (h: RepeatingFunction f) (p: α → Prop): (∀ i < h.k, p (f i)) ↔ (∀ i, p (f i)) := by
+  have x := h.inv
+  constructor
+  · intro h1
+    intro k
+    have : f k ∈ f '' univ := mem_image_of_mem f (mem_univ k)
+    rw [x] at this
+    obtain ⟨k', hk', eqfk⟩ := this
+    rw [←eqfk]
+    exact h1 k' hk'
 
+  · intro h1
+    intro k
+    intro h2
+    exact (h1 k)
+  
 
 lemma find_some_bounded_eq_find_some_of_repeating_function { α } { f: ℕ → Option α } (h: RepeatingFunction f): find_some_bounded f h.k = find_some f := by
   cases c: find_some_bounded f h.k
   case some val =>
-    simp [find_some_bounded_eq_find_some' c]
+    simp [find_some_bounded_eq_some_iff] at c
+    apply Eq.symm
+    simp [find_some_eq_some_iff]
+    simp [c]
+    exact c.2.2
+
   case none =>
+    simp [find_some_bounded_eq_none_iff] at c
+    apply Eq.symm
+    rw [find_some_eq_none_iff]
+    simp_all [repeating_function_forall h (fun val => val = none)]
