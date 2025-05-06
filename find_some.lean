@@ -114,46 +114,63 @@ private lemma find_some_bounded_acc_eq_some_iff { α } { f: ℕ → Option α } 
     unfold find_some_bounded_acc
     simp
 
-
   case succ n ih =>
     unfold find_some_bounded_acc
     have ih := ih (s+1)
     cases c: f s
-    simp [ih]
-    intro h
-    conv =>
-        arg 2
-        rw [unroll_all2]
+    case none =>
+      simp [ih]
+      intro h
 
-
-        
-    have x: val.idx ≠ s := by 
-      simp_all only [mem_Ico, and_imp, true_and, ne_eq]
-      apply Aesop.BuiltinRules.not_intro
-      intro a
-      subst a
-      simp_all only [reduceCtorEq]
-      
-    simp_all
-
-    
-
-    cases c: f s
-    · simp [ih]
       conv =>
-        arg 2
-        rw [unroll_all2]
-
-      simp_all [c]
-      have h: s + (n + 1) = s + 1 + n := by omega
-      simp [h]
-
-    · simp
-      use s
+          arg 2
+          rw [unroll_all2]
+      
       simp [c]
 
-lemma find_some_bounded_some_iff { α } { f: ℕ → Option α } (k) (val): find_some_bounded f k = some val ↔ ∃ i < k, f i = some val ∧ ∀ j < i, f j = none := by
-  sorry
+      intro hh
+
+          
+      have x: val.idx ≠ s := by 
+        simp_all only [mem_Ico, and_imp, true_and, ne_eq]
+        apply Aesop.BuiltinRules.not_intro
+        intro a
+        subst a
+        simp_all only [reduceCtorEq]
+      omega
+
+    case some =>
+      simp
+      constructor
+      · intro h
+        simp [←h, c]
+        intro j
+        intro h1
+        intro h2
+        exfalso
+        exact Nat.lt_irrefl s (Nat.lt_of_le_of_lt h1 h2)
+      
+      · intro h
+        cases x: val with | mk val_val val_idx =>
+        simp_all [x]
+        
+        by_cases c2: s = val_idx
+        · simp_all
+        · have x: s < val_idx := by
+            have y := h.2.1.1
+            omega
+          have y := h.2.2 s
+          simp at y
+          have y := y x
+          rename_i x_1 y_1
+          subst x_1
+          simp_all only [le_refl, reduceCtorEq]
+
+
+
+
+lemma find_some_bounded_some_iff { α } { f: ℕ → Option α } (k) (val): find_some_bounded f k = some val ↔ f val.idx = some val.val ∧ val.idx < k ∧ ∀ j < val.idx, f j = none := by
+  simp [find_some_bounded, find_some_bounded_acc_eq_some_iff]
 
 
 
