@@ -222,7 +222,80 @@ lemma iterative_function_is_cyclic {M} (f: ℕ → M) (h1: iterative_function f)
 def k' (k a b: ℕ) := if k ≤ a then k else a + ((k-a) % b)
 
 
-lemma apply_iterated_mod {M} (h: Fintype M): ∃ a b, a + (b-1) ≤ h.card ∧ ∀ k: (apply_iterated f m) k = (apply_iterated f m) (k' k a b) := by
+def apply_iterated (f: α → α) (a: α) (k: ℕ) := Nat.iterate f k a
+
+lemma f_not_inj (h: Fintype M) (f: ℕ → M): ∃ b, ∃ a < b, b ≤ h.card ∧ f a = f b := by
+  set n := Fintype.card M + 1 with nh
+  
+  let f' : Fin n → M := fun i => f i.val
+  have : ¬Function.Injective f' := by
+    have x := Fintype.card_le_of_injective f'
+    simp_all [n]
+  -- So f' is not injective ⇒ ∃ i ≠ j, f' i = f' j
+  simp only [Function.Injective] at this
+  push_neg at this
+  obtain ⟨i, j, hne, heq⟩ := this
+  wlog hij : i < j generalizing i j
+  · exact this j i (Eq.symm hne) (Ne.symm heq) (lt_of_le_of_ne (le_of_not_gt hij) (Ne.symm heq))
+  use j.val
+  use i.val
+  constructor
+  · exact hij
+  constructor
+  · omega
+  · exact hne
+
+lemma apply_iterated_mod {M} {f: M -> M} {m:M} (h: Fintype M): ∃ a b, a + (b - 1) ≤ h.card ∧ (apply_iterated f m) k = (apply_iterated f m) (k' k a b) := by
+  have ⟨ b, a, h ⟩  := f_not_inj h (apply_iterated f m)
+  set g := apply_iterated f m
+  use a
+  set bb := b - a
+
+  have m1 (i k: ℕ): g (a + i) = g (b + i + k * bb) := by
+    induction k generalizing i
+    case zero =>
+      simp [h]
+      
+
+    case succ n ih =>
+      simp [g, apply_iterated] at ih
+      --have ih := @ih (f m) h.1 h.2.1
+
+      have x1: a + (n + 1) = 1 + (a + n) := by omega
+      have x2: b + (n + 1) + k * bb = 1 + (b + n + k * bb) := by omega
+      rw [x1, x2]
+      unfold g
+      simp [apply_iterated]
+      rw [Function.iterate_add]
+      conv =>
+        pattern f^[1 + (b + n + k * bb)] m
+        rw [Function.iterate_add]
+      simp [ih]
+  
+
+  have m1 (n k: ℕ): g n = g (n + k * bb) := by
+
+
+  use bb
+  constructor
+  · omega
+  
+  unfold k'
+
+  by_cases c: k ≤ a
+  · simp [c]
+  simp only [c, ↓reduceIte]
+
+  simp [Nat.mod_def]
+  simp at c
+  set x := (k - a) / bb
+
+  have y: a + (k - a - x) = k - x :=
+    by omega
+
+  use a
+  sorry
+  sorry
 /-
 
 ∃ k1 ≠ k2 ∈ {0...h.card+1}: g k1 = g k2
