@@ -64,27 +64,14 @@ lemma find_some_eq_some_iff { α } { f: ℕ → Option α } (val): find_some f =
     rw [←Nat.find_eq_iff h''] at hk2
     simp_all
 
-lemma unroll_all (m) (b: ℕ → Prop): (∀ j < (m + 1), b j) ↔ b 0 ∧ ∀ j < m, b (j + 1) := by
-  apply Iff.intro
-  · intro a
-    simp_all only [lt_add_iff_pos_left, add_pos_iff, Nat.lt_one_iff, pos_of_gt, or_true, add_lt_add_iff_right,
-      implies_true, and_self]
-  · intro a j a_1
-    obtain ⟨left, right⟩ := a
-    have right := right (j - 1)
-    cases j
-    case zero => exact left
-    case succ n => simp_all
-
 lemma unroll_all2 (b) (p: ℕ → Prop): (∀ j, b ≤ j → p j) ↔ p b ∧ ∀ j, b + 1 ≤ j → p j := by
-
   apply Iff.intro
   · intro a
     simp_all only [le_refl, true_and]
     intro j a_1
     have y: b ≤ j := by omega
     simp [a j y]
-    
+
   · intro a j a_1
     obtain ⟨left, right⟩ := a
     have right := right j
@@ -108,28 +95,62 @@ private lemma find_some_bounded_acc_eq_none_iff { α } { f: ℕ → Option α } 
       conv =>
         arg 2
         rw [unroll_all2]
-      
+
       simp_all [c]
       have h: s + (n + 1) = s + 1 + n := by omega
       simp [h]
-      
+
     · simp
       use s
       simp [c]
 
 
-lemma find_some_bounded_eq_none_iff { α } { f: ℕ → Option α } (k): find_some_bounded f k = none ↔ ∀ j < k, f j = none := by
-  induction k generalizing f
-  case zero => simp [find_some_bounded, find_some_bounded_acc]
-  case succ n ih =>
-    unfold find_some_bounded
-    have ih := @ih (pop_nat_fn f)
-    cases c: f 0
-    · simp [ih, pop_nat_fn, unroll_all n (fun k => f k = none), c]
-    · simp
-      use 0
-      simp [c]
+lemma find_some_bounded_eq_none_iff { α } { f: ℕ → Option α } (k): find_some_bounded f k = none ↔ ∀ j < k, f j = none := by simp [find_some_bounded, find_some_bounded_acc_eq_none_iff]
 
+
+private lemma find_some_bounded_acc_eq_some_iff { α } { f: ℕ → Option α } (s len val): find_some_bounded_acc f s len = some val ↔ f val.idx = some val.val ∧ val.idx ∈ Set.Ico s (s + len) ∧ ∀ j ∈ Set.Ico s val.idx, f j = none := by
+  induction len generalizing s
+  case zero =>
+    unfold find_some_bounded_acc
+    simp
+
+
+  case succ n ih =>
+    unfold find_some_bounded_acc
+    have ih := ih (s+1)
+    cases c: f s
+    simp [ih]
+    intro h
+    conv =>
+        arg 2
+        rw [unroll_all2]
+
+
+        
+    have x: val.idx ≠ s := by 
+      simp_all only [mem_Ico, and_imp, true_and, ne_eq]
+      apply Aesop.BuiltinRules.not_intro
+      intro a
+      subst a
+      simp_all only [reduceCtorEq]
+      
+    simp_all
+
+    
+
+    cases c: f s
+    · simp [ih]
+      conv =>
+        arg 2
+        rw [unroll_all2]
+
+      simp_all [c]
+      have h: s + (n + 1) = s + 1 + n := by omega
+      simp [h]
+
+    · simp
+      use s
+      simp [c]
 
 lemma find_some_bounded_some_iff { α } { f: ℕ → Option α } (k) (val): find_some_bounded f k = some val ↔ ∃ i < k, f i = some val ∧ ∀ j < i, f j = none := by
   sorry
