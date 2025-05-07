@@ -209,17 +209,19 @@ structure RepeatingFunction (f: ℕ → M) where
 
 def iterative_function {M} (f: ℕ → M) := ∀ i j, f i = f j → f (i+1) = f (j+1)
 
-lemma iterative_function_is_cyclic {M} (f: ℕ → M) (h1: iterative_function f) (o i: ℕ) (h2: f i = f (i + o)): f (i + k) = f (i + k % o) := by
-  --unfold iterative_function at h1
-  let r := k % o
-  have h := Nat.div_add_mod k o
-  conv =>
-    pattern (i + k)
-    rw [←h]
 
 
 
 def k' (k a b: ℕ) := if k ≤ a then k else a + ((k-a) % b)
+
+lemma k'_bounded (k a b) (h: b > 0): k' k a b ≤ a + (b - 1) := by
+  unfold k'
+  by_cases c: k ≤ a
+  · simp [c]
+    omega
+  · simp [c]
+    have x := (Nat.mod_lt (k-a) h)
+    omega
 
 
 def apply_iterated (f: α → α) (a: α) (k: ℕ) := Nat.iterate f k a
@@ -245,42 +247,55 @@ lemma f_not_inj (h: Fintype M) (f: ℕ → M): ∃ b, ∃ a < b, b ≤ h.card �
   · omega
   · exact hne
 
-lemma apply_iterated_mod {M} {f: M -> M} {m:M} (h: Fintype M): ∃ a b, a + (b - 1) ≤ h.card ∧ (apply_iterated f m) k = (apply_iterated f m) (k' k a b) := by
+lemma apply_iterated_mod {M} (h: Fintype M) (f: M -> M) (m:M): ∃ a b, a + (b - 1) < h.card ∧ b > 0 ∧ ∀ k, (apply_iterated f m) k = (apply_iterated f m) (k' k a b) := by
   have ⟨ b, a, h ⟩  := f_not_inj h (apply_iterated f m)
   set g := apply_iterated f m
   use a
   set bb := b - a
 
-  have m1 (i k: ℕ): g (a + i) = g (b + i + k * bb) := by
-    induction k generalizing i
-    case zero =>
-      simp [h]
-      
+  have m1 (i k: ℕ): g (a + i) = g (a + i + bb) := by
+    induction i
+    case zero => simp [h, bb, Nat.add_sub_cancel' (Nat.le_of_lt h.1)]
 
     case succ n ih =>
       simp [g, apply_iterated] at ih
-      --have ih := @ih (f m) h.1 h.2.1
 
       have x1: a + (n + 1) = 1 + (a + n) := by omega
-      have x2: b + (n + 1) + k * bb = 1 + (b + n + k * bb) := by omega
-      rw [x1, x2]
+      have x2: a + (n + 1) + bb = 1 + (a + n + bb) := by omega
+
+      rw [x2, x1]
       unfold g
       simp [apply_iterated]
       rw [Function.iterate_add]
       conv =>
-        pattern f^[1 + (b + n + k * bb)] m
+        pattern f^[1 + (a + n + bb)] m
         rw [Function.iterate_add]
       simp [ih]
-  
 
-  have m1 (n k: ℕ): g n = g (n + k * bb) := by
+  have m1 (i k: ℕ) (h: i ≥ a): g i = g (i + bb * k) := by
+    induction k generalizing i
+    case zero => simp [h]
 
+    case succ n ih =>
+      have ⟨ s, sh ⟩ := Nat.exists_eq_add_of_le h
+      rw [sh]
+      rw [Nat.mul_add]
+      rw [ih (a + s) (by omega)]
+      have y: a + s + bb * n = a + (s + bb * n) := by omega
+      rw [y]
+      rw [m1]
+      apply congrArg
+      omega
+      exact s
 
   use bb
   constructor
   · omega
   
   unfold k'
+  constructor
+  · omega
+  intro k
 
   by_cases c: k ≤ a
   · simp [c]
@@ -290,30 +305,22 @@ lemma apply_iterated_mod {M} {f: M -> M} {m:M} (h: Fintype M): ∃ a b, a + (b -
   simp at c
   set x := (k - a) / bb
 
-  have y: a + (k - a - x) = k - x :=
-    by omega
+  have xx: a + (k - a - bb * x) ≥ a := by omega
 
-  use a
-  sorry
-  sorry
-/-
+  --have xx1: (k - a - bb * x ≥ 0) := sorry
+  have xx2: k - a ≥ bb * x := by
+    unfold x
+    have := Nat.mul_le_of_le_div bb ((k-a)/bb) (k-a) (le_refl _)
+    conv =>
+      pattern bb * _
+      rw [Nat.mul_comm]
+    simp_all
 
-∃ k1 ≠ k2 ∈ {0...h.card+1}: g k1 = g k2
-a := k1
-b := k2 - k1
-
-
-f a = f b => f (a + 1) = f (b + 1)
-f a = f (a + k) => f (a + j) = f (a + j % k)
-
-g (k1 + (i * b)) = g k1
-
-g (k1 + j) = g (k2 + j)
-
-a + b
-
--/
-  sorry
+  conv =>
+    arg 2
+    rw [m1 _ x xx]
+  apply congrArg
+  omega
 
 
 
@@ -327,8 +334,14 @@ def repeating_function_of_iterate_fin_type { M } (h: Fintype M) { f: M → M } (
       simp at h
       rcases h with ⟨y, hy⟩
       simp
+      have ⟨ a, b, hf ⟩ := apply_iterated_mod h f m
+      use k' y a b
+      constructor
+      · have bounded := k'_bounded y a b (by simp [hf])
+        omega
 
-      sorry
+      simp [←hy, hf.2.2 y]
+
     · intro h
       aesop
 }
