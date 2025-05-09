@@ -3,6 +3,20 @@ import CellularAutomatas.defs
 import CellularAutomatas.common
 import CellularAutomatas.find_some
 
+theorem min_nat_eq {f: ℕ -> Option Bool}: min_nat { i | f i ≠ none } = find_some_idx f := by
+  unfold min_nat find_some_idx
+  cases c: find_some_idxd f
+  case none =>
+    rw [find_some_idxd_eq_none_iff] at c
+    simp [c]
+  case some val =>
+    rw [find_some_idxd_eq_some_iff] at c
+    have : ∃ n, ¬f n = none := by
+      use val.idx
+      simp [c]
+    simp_all [Nat.find_eq_iff]
+
+
 variable [Alphabet]
 
 @[simp]
@@ -11,11 +25,23 @@ theorem LCellAutomata.comp_zero {C: LCellAutomata} {w}: C.comp w 0 = C.embed_wor
 
 def FCellAutomata.comp_accepts {C: FCellAutomata} (w) := C.config_accepts ∘ C.comp w
 
-theorem FCellAutomata.time_eq {C: FCellAutomata} {w}: C.time w = Option.map Indexed.idx (find_some_idx (C.comp_accepts w)) :=
-  sorry
 
-theorem FCellAutomata.accepts_iff {C: FCellAutomata} {w}: C.accepts w ↔ find_some (C.comp_accepts w) = some true :=
-  sorry
+theorem FCellAutomata.time_eq {C: FCellAutomata} {w}: C.time w = find_some_idx (C.comp_accepts w) := by
+  simp [←min_nat_eq, FCellAutomata.time, comp_accepts, FCellAutomata.config_accepts]
+
+theorem FCellAutomata.comp_accepts_eq_config_accepts_comp {C: FCellAutomata} {w} {t}: C.comp_accepts w t = C.config_accepts (C.comp w t) := by
+  simp [comp_accepts]
+
+theorem FCellAutomata.accepts_iff {C: FCellAutomata} {w}: C.accepts w ↔ find_some (C.comp_accepts w) = some true := by
+  simp only [FCellAutomata.accepts, FCellAutomata.time_eq, find_some_idx, ← comp_accepts_eq_config_accepts_comp]
+  unfold find_some
+  cases c: find_some_idxd (comp_accepts w)
+  case none =>
+    simp_all
+  case some val =>
+    rw [find_some_idxd_eq_some_iff] at c
+    simp only [Option.map_some', find_some, c]
+
 
 def uniform_config {C: CellAutomata} (q: C.Q): Config C.Q := fun _ => q
 
@@ -77,6 +103,14 @@ theorem FCellAutomata.accepts_empty_iff_comp_state_accepts_border {C: FCellAutom
   simp only [←Function.comp_assoc, FCellAutomata.uniform_config_accepts_eq]
   rw [←find_some_bounded_eq_find_some_of_repeating_function (state_accepts_repeatingFunction C)]
   simp [state_accepts_repeatingFunction, RepeatingFunction, repeating_function_of_composition, repeating_function_of_iterate_fin_type ]
+
+
+
+
+
+
+
+
 
 
 /-

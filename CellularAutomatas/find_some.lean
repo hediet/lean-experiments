@@ -7,13 +7,14 @@ structure Indexed (α: Type) where
   val: α
   idx: ℕ
 
-noncomputable def find_some_idx { α } (f: ℕ → Option α): Option (Indexed α) :=
+noncomputable def find_some_idxd { α } (f: ℕ → Option α): Option (Indexed α) :=
   let _dec := Classical.dec;
   if h: ∃ n, (f n).isSome = true
   then let idx := Nat.find h; some ⟨ (f idx).get (Nat.find_spec h), idx ⟩
   else none
 
-noncomputable def find_some { α } (f: ℕ → Option α) := Option.map Indexed.val (find_some_idx f)
+noncomputable def find_some { α } (f: ℕ → Option α) := Option.map Indexed.val (find_some_idxd f)
+noncomputable def find_some_idx { α } (f: ℕ → Option α) := Option.map Indexed.idx (find_some_idxd f)
 
 private def find_some_bounded_acc { α } (f: ℕ → Option α) (idx: ℕ): ℕ -> Option (Indexed α)
 | 0 => none
@@ -26,8 +27,8 @@ def find_some_bounded_idx { α } (f: ℕ → Option α) (k: ℕ) := find_some_bo
 
 def find_some_bounded { α } (f: ℕ → Option α) := Option.map Indexed.val ∘ find_some_bounded_idx f
 
-lemma find_some_idx_eq_none_iff { α } { f: ℕ → Option α }: find_some_idx f = none ↔ ∀ i, f i = none := by
-  unfold find_some_idx
+lemma find_some_idxd_eq_none_iff { α } { f: ℕ → Option α }: find_some_idxd f = none ↔ ∀ i, f i = none := by
+  unfold find_some_idxd
   split_ifs
   case pos h =>
     simp only [reduceDIte, h, reduceCtorEq, false_iff, not_forall]
@@ -39,9 +40,9 @@ lemma find_some_idx_eq_none_iff { α } { f: ℕ → Option α }: find_some_idx f
   case neg h =>
     simp_all [h]
 
-lemma find_some_idx_eq_some_iff { α } { f: ℕ → Option α } (val): find_some_idx f = some val ↔ f val.idx = some val.val ∧ ∀ i < val.idx, f i = none := by
+lemma find_some_idxd_eq_some_iff { α } { f: ℕ → Option α } (val): find_some_idxd f = some val ↔ f val.idx = some val.val ∧ ∀ i < val.idx, f i = none := by
   let _dec := Classical.dec;
-  unfold find_some_idx
+  unfold find_some_idxd
   simp only [Option.some_get, Option.dite_none_right_eq_some]
 
   constructor
@@ -187,8 +188,8 @@ lemma find_some_bounded_eq_some_iff { α } { f: ℕ → Option α } { k val }: f
     use ⟨ val, a ⟩
 
 
-lemma find_some_eq_none_iff_find_some_bounded_eq_none { α } { f: ℕ → Option α }: (∀ k, find_some_bounded_idx f k = none) ↔ find_some_idx f = none := by
-  rw [find_some_idx_eq_none_iff]
+lemma find_some_eq_none_iff_find_some_bounded_eq_none { α } { f: ℕ → Option α }: (∀ k, find_some_bounded_idx f k = none) ↔ find_some_idxd f = none := by
+  rw [find_some_idxd_eq_none_iff]
   conv =>
     pattern find_some_bounded_idx _ _ = _
     rw [find_some_bounded_eq_none_iff]
@@ -199,13 +200,13 @@ lemma find_some_eq_none_iff_find_some_bounded_eq_none { α } { f: ℕ → Option
     simp_all only
 
 
-lemma find_some_of_find_some_bounded { α } { f: ℕ → Option α } {val} (h: find_some_bounded_idx f k = some val): find_some_idx f = some val := by
-  rw [find_some_idx_eq_some_iff]
+lemma find_some_of_find_some_bounded { α } { f: ℕ → Option α } {val} (h: find_some_bounded_idx f k = some val): find_some_idxd f = some val := by
+  rw [find_some_idxd_eq_some_iff]
   rw [find_some_bounded_idx_eq_some_iff] at h
   simp_all
 
-lemma find_some_bounded_eq_none_iff_find_some_eq_none { α } { f: ℕ → Option α } (val): ∃ k, find_some_bounded_idx f k = some val ↔ find_some_idx f = some val := by
-  rw [find_some_idx_eq_some_iff]
+lemma find_some_bounded_eq_none_iff_find_some_eq_none { α } { f: ℕ → Option α } (val): ∃ k, find_some_bounded_idx f k = some val ↔ find_some_idxd f = some val := by
+  rw [find_some_idxd_eq_some_iff]
   simp [find_some_bounded_idx_eq_some_iff]
   use val.idx + 1
   simp
@@ -394,20 +395,20 @@ lemma repeating_function_forall {α} { f: ℕ → α } (h: RepeatingFunction f) 
     exact (h1 k)
 
 
-lemma find_some_bounded_idx_eq_find_some_idx_of_repeating_function { α } { f: ℕ → Option α } (h: RepeatingFunction f): find_some_bounded_idx f h.k = find_some_idx f := by
+lemma find_some_bounded_idx_eq_find_some_idxd_of_repeating_function { α } { f: ℕ → Option α } (h: RepeatingFunction f): find_some_bounded_idx f h.k = find_some_idxd f := by
   cases c: find_some_bounded_idx f h.k
   case some val =>
     simp [find_some_bounded_idx_eq_some_iff] at c
     apply Eq.symm
-    simp [find_some_idx_eq_some_iff]
+    simp [find_some_idxd_eq_some_iff]
     simp [c]
     exact c.2.2
 
   case none =>
     simp [find_some_bounded_eq_none_iff] at c
     apply Eq.symm
-    rw [find_some_idx_eq_none_iff]
+    rw [find_some_idxd_eq_none_iff]
     simp_all [repeating_function_forall h (fun val => val = none)]
 
 lemma find_some_bounded_eq_find_some_of_repeating_function { α } { f: ℕ → Option α } (h: RepeatingFunction f): find_some_bounded f h.k = find_some f := by
-  simp [find_some_bounded, find_some, find_some_bounded_idx_eq_find_some_idx_of_repeating_function]
+  simp [find_some_bounded, find_some, find_some_bounded_idx_eq_find_some_idxd_of_repeating_function]
