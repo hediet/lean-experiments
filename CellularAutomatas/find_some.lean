@@ -174,7 +174,15 @@ lemma find_some_bounded_idx_eq_some_iff { α } { f: ℕ → Option α } { k val 
   simp [find_some_bounded_idx, find_some_bounded_acc_eq_some_iff]
 
 lemma find_some_bounded_eq_some_iff { α } { f: ℕ → Option α } { k val }: find_some_bounded f k = some val ↔ ∃ t, f t = some val ∧ t < k ∧ ∀ j < t, f j = none := by
-  sorry
+  simp [find_some_bounded, find_some_bounded_idx_eq_some_iff]
+  constructor
+  · intro h
+    have ⟨ a, h ⟩ := h
+    use a.idx
+    simp_all
+  · intro h
+    have ⟨ a, h ⟩ := h
+    use ⟨ val, a ⟩
 
 
 lemma find_some_eq_none_iff_find_some_bounded_eq_none { α } { f: ℕ → Option α }: (∀ k, find_some_bounded_idx f k = none) ↔ find_some f = none := by
