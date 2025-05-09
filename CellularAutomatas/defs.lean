@@ -23,11 +23,8 @@ def Config (Q: Type*) := ℤ → Q
 def CellAutomata.next (ca: CellAutomata) (c: Config ca.Q): Config ca.Q :=
   fun i => ca.δ (c (i - 1)) (c i) (c (i + 1))
 
-def CellAutomata.comp (ca: CellAutomata) (n: ℕ) (c: Config ca.Q): Config ca.Q :=
-  apply_iterated ca.next c
-  match n with
-  | 0 => c
-  | n + 1 => ca.next (ca.comp n c)
+def CellAutomata.comp (ca: CellAutomata): ℕ → Config ca.Q → Config ca.Q := Nat.iterate ca.next
+
 
 variable (ca: CellAutomata)
 
