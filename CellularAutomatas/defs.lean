@@ -133,25 +133,24 @@ instance : Coe tCellAutomata CellAutomata where
   coe ca := ca.toCellAutomata
 
 
-/-
+
+
+
+instance : DefinesTime FCellAutomata where
+  t ca := sorry
+
+instance : DefinesTime tCellAutomata where
+  t ca := sorry
+
+
+
+
 def t_max [DefinesTime CA] (ca: CA) (n: ℕ): Option ℕ := sorry
 
 def halts [DefinesTime CA] (ca: CA): Prop :=
   ∀ n: ℕ, t_max ca n ≠ none
 
 def t_max' [DefinesTime CA] (ca: CA) (h: halts ca) (n: ℕ): ℕ := sorry
--/
-
-/-
-instance : DefinesTime FCellAutomata where
-  t ca := sorry
--/
-
-
-/-
-instance : DefinesTime tCellAutomata where
-  t ca := sorry
-
 
 def OCA_L { β: Type u } [Coe β CellAutomata] (set: Set β): Set β :=
   fun ca => ca ∈ set ∧ CellAutomata.left_independent ca
@@ -159,15 +158,14 @@ def OCA_L { β: Type u } [Coe β CellAutomata] (set: Set β): Set β :=
 def OCA_R { β: Type u } [Coe β CellAutomata] (set: Set β): Set β :=
   fun ca => ca ∈ set ∧ CellAutomata.right_independent ca
 
-def rt { β: Type u } [DefinesTime β] (fns: Set (ℕ → ℕ)) (set: Set β): Set β :=
+def with_time { β: Type u } [DefinesTime β] (fns: Set (ℕ → ℕ)) (set: Set β): Set β :=
   fun ca => ca ∈ set ∧ halts ca ∧ ((h: halts ca) → ((t_max' ca h) ∈ fns))
+
 
 syntax term "&" term : term
 macro_rules | `($a & $b) => `($b $a)
 
 
-
-def RT := tCellAutomatas & rt { fun n => n - 1 }
+def RT := tCellAutomatas & with_time { fun n => n - 1 }
 
 theorem X: ℒ (RT) = ℒ (FCellAutomatas & OCA_L) := sorry
--/
