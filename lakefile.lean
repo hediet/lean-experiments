@@ -1,10 +1,10 @@
 import Lake
 open Lake DSL
 
-package «lean-playground» where
+package «cellular-automatas» where
   -- add package configuration options here
 
-lean_lib «LeanPlayground» where
+lean_lib «CellularAutomatas» where
   -- add library configuration options here
 
 @[default_target]

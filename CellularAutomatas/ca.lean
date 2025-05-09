@@ -1,186 +1,45 @@
 import Mathlib
+import CellularAutomatas.defs
+import CellularAutomatas.common
+import CellularAutomatas.find_some
 
-open Set
-
-theorem ite_eq_of_true {α} { p: Prop } [Decidable p] (h: p) (a b: α): (if p then a else b) = a := by
-  simp_all only [↓reduceIte]
-
-noncomputable def min_nat (set: Set ℕ) :=
-  let _dec := Classical.dec;
-  if h: ∃ n, n ∈ set
-  then some (Nat.find h)
-  else none
-
-theorem min_nat_of_set { p: ℕ → Prop } (h: p 0): min_nat { t | p t } = some 0 := by
-  unfold min_nat
-  have : ∃ n, n ∈ { t | p t } := by
-    use 0
-    exact h
-  simp_all [this, h]
-
-theorem set_iff {α: Type*} (p1 p2: α → Prop): {w | p1 w} = {w | p2 w} ↔ (∀ w, p1 w ↔ p2 w) := by
-  simp [Set.ext_iff]
-
--- How to get rid of this?
-theorem eq_of_app { α β: Type* } { f g: α → β } (h: f = g) (a: α): f a = g a := by
-  rw [h]
-
-----------------------------------------------------------------
-
-
-class Alphabet where
-  (α: Type 0)
-
-def Word [Alphabet] := List Alphabet.α
-
-structure CellAutomata where
-  Q: Type u
-  δ: Q → Q → Q → Q
-  [inv_decidable_q: DecidableEq Q]
-  [inv_fin_q: Fintype Q]
-
-def Config (Q: Type*) := ℤ → Q
-
-def CellAutomata.next (ca: CellAutomata) (c: Config ca.Q): Config ca.Q :=
-  fun i => ca.δ (c (i - 1)) (c i) (c (i + 1))
-
-def CellAutomata.comp (ca: CellAutomata) (n: ℕ) (c: Config ca.Q): Config ca.Q :=
-  match n with
-  | 0 => c
-  | n + 1 => ca.next (ca.comp n c)
-
-variable (ca: CellAutomata)
-
-def CellAutomata.passive_set (Q: Set ca.Q) := ∀ (a b c: Q), ca.δ a b c = b
-def CellAutomata.passive (q: ca.Q) := ca.passive_set { q }
-
-def CellAutomata.delta_closed_set (Q: Set ca.Q) := ∀ a (b: Q) c, ca.δ a b c ∈ Q
-def CellAutomata.dead (q: ca.Q) := ca.delta_closed_set {q}
-
-def CellAutomata.left_independent := ∀ (q1 q2 q3 q1'), ca.δ q1 q2 q3 = ca.δ q1' q2 q3
-def CellAutomata.right_independent := ∀ (q1 q2 q3 q3'), ca.δ q1 q2 q3 = ca.δ q1 q2 q3'
-
-def CellAutomata.initial (q: ca.Q) := ∀ a b c, ca.δ a b c = q → b = q
-
-
-variable [α: Alphabet]
-
-structure LCellAutomata extends CellAutomata where
-  embed: α.α → Q
-  border: Q
-
-def LCellAutomata.embed_word (ca: LCellAutomata) (word: Word): Config ca.Q :=
-  fun i =>
-    if h: i ≥ 0 ∧ i < word.length
-    then ca.embed (word.get ⟨i.toNat, by omega⟩)
-    else ca.border
-
-def LCellAutomata.comp (C: LCellAutomata) (w: Word)
-| 0 => C.embed_word w
-| t + 1 => C.next (C.comp w t)
-
-/-- A state is an internal state if embedding an input does not produce it. -/
-def LCellAutomata.internal_state {C: LCellAutomata} (q: C.Q) := ∀ a: α.α, C.embed a ≠ q
+variable [Alphabet]
 
 @[simp]
 theorem LCellAutomata.comp_zero {C: LCellAutomata} {w}: C.comp w 0 = C.embed_word w := by rfl
 
 
-class DefinesLanguage (CA: Type u) where
-  L: CA -> Language α.α
-
-def ℒ [DefinesLanguage CA] (s: (Set CA)): Set (Language α.α) :=
-  fun L => ∃ ca: CA, ca ∈ s ∧ L = DefinesLanguage.L ca
 
 
-class DefinesTime (CA: Type u) where
-  t: CA -> Word → Option ℕ
+
+def Word.cone (w: Word) (t: ℕ): Set ℤ := { i: ℤ | -t ≤ i ∧ i < w.length + t }
+
+instance (w: Word) (t: ℕ) (i: ℤ) [d: Decidable (i ∈ { i: ℤ | -t ≤ i ∧ i < w.length + t })]:
+  Decidable (i ∈ (Word.cone w t)) := d
+
+theorem Word.cone_prop {w: Word} {t: ℕ} {i: ℤ} (d: ℤ) (h: i ∉ w.cone (t + 1)) (h2: d.natAbs ≤ 1): (i + d) ∉ w.cone t := by
+  simp_all [Word.cone]
+  omega
+
+def Word.get_cone_0 {w: Word} {i} (h: i ∈ w.cone 0) := w.get ⟨i.toNat, by simp_all [h, Word.cone]⟩
+
+theorem embed_word_eq_embed {C: LCellAutomata} {w: Word} {i} (h: i ∈ w.cone 0): C.embed_word w i = C.embed (w.get_cone_0 h) := by
+  simp [Word.cone] at h
+  simp [Word.get_cone_0, LCellAutomata.embed_word, Word.cone, h]
+
+
+
+
+def FCellAutomata.comp_state_accepts { C: FCellAutomata } (q: C.Q) :=
+  find_some_bounded (C.state_accepts ∘ δδn q) C.inv_fin_q.card == some true
+
+
+theorem FCellAutomata.accepts_empty_iff_comp_state_accepts_border {C: FCellAutomata}: C.accepts [] ↔ C.comp_state_accepts C.border = true := by
+  unfold FCellAutomata.accepts
+  sorry
+
 
 /-
-def t_max [DefinesTime CA] (ca: CA) (n: ℕ): Option ℕ := sorry
-
-def halts [DefinesTime CA] (ca: CA): Prop :=
-  ∀ n: ℕ, t_max ca n ≠ none
-
-def t_max' [DefinesTime CA] (ca: CA) (h: halts ca) (n: ℕ): ℕ := sorry
--/
-
-
-structure FCellAutomata extends LCellAutomata where
-  /--
-    * `none`: continue
-    * `some true`: accept
-    * `some false`: reject
-  -/
-  state_accepts: Q -> Option Bool
-
-
-noncomputable def FCellAutomata.time (C: FCellAutomata) (w: Word): Option ℕ :=
-  min_nat { t | C.state_accepts (C.comp w t 0) ≠ none }
-
-def FCellAutomata.accepts (C: FCellAutomata) (w: Word) :=
-  match C.time w with
-  | some t => C.state_accepts (C.comp w t 0) = some true
-  | none => False
-
-def FCellAutomata.L (C: FCellAutomata): Language α.α := { w: Word | C.accepts w }
-
-def FCellAutomatas [α: Alphabet]: Set FCellAutomata := fun _a => true
-
-
-
-instance : DefinesLanguage FCellAutomata where
-  L ca := ca.L
-
-instance : Coe FCellAutomata CellAutomata where
-  coe ca := ca.toCellAutomata
-
-/-
-instance : DefinesTime FCellAutomata where
-  t ca := sorry
--/
-
-structure tCellAutomata extends LCellAutomata where
-  t: ℕ → ℕ
-  F_pos: Set Q
-
-def tCellAutomata.L (C: tCellAutomata): Language α.α := fun w =>
-  (C.comp w (C.t w.length)) 0 ∈ C.F_pos
-
-def tCellAutomatas [α: Alphabet]: Set tCellAutomata := fun _a => true
-
-instance : DefinesLanguage tCellAutomata where
-  L ca := ca.L
-
-instance : Coe tCellAutomata CellAutomata where
-  coe ca := ca.toCellAutomata
-
-/-
-instance : DefinesTime tCellAutomata where
-  t ca := sorry
-
-
-def OCA_L { β: Type u } [Coe β CellAutomata] (set: Set β): Set β :=
-  fun ca => ca ∈ set ∧ CellAutomata.left_independent ca
-
-def OCA_R { β: Type u } [Coe β CellAutomata] (set: Set β): Set β :=
-  fun ca => ca ∈ set ∧ CellAutomata.right_independent ca
-
-def rt { β: Type u } [DefinesTime β] (fns: Set (ℕ → ℕ)) (set: Set β): Set β :=
-  fun ca => ca ∈ set ∧ halts ca ∧ ((h: halts ca) → ((t_max' ca h) ∈ fns))
-
-syntax term "&" term : term
-macro_rules | `($a & $b) => `($b $a)
-
-
-
-def RT := tCellAutomatas & rt { fun n => n - 1 }
-
-theorem X: ℒ (RT) = ℒ (FCellAutomatas & OCA_L) := sorry
--/
-
-
-
 def CellAutomata.pow_t (C: CellAutomata) (q: C.Q)
 | 0 => q
 | n + 1 => C.δ (CellAutomata.pow_t C q n) (CellAutomata.pow_t C q n) (CellAutomata.pow_t C q n)
@@ -199,22 +58,6 @@ def CellAutomata.pow_t_eq_succ {C: CellAutomata} (q: C.Q): q^(n+1) = (q^n)^1 := 
 
 
 
-inductive lemma_1_Q (Q: Type u) where
-  | border
-  | state (s border: Q)
-deriving Inhabited, BEq, Repr, Fintype, DecidableEq
-
-syntax "[" term "|" term "]" : term
-macro_rules | `([$a | $b]) => `(lemma_1_Q.state $a $b)
-
-def lemma_1_Q.unwrap (q: lemma_1_Q Q) (b: Q) :=
-  match q with
-  | border => b
-  | state s _b => s
-
-open lemma_1_Q
-infix:50 " ?? " => unwrap
-
 protected def FCellAutomata.state_pow_accepts' { C: FCellAutomata } (q: C.Q) (n: ℕ) :=
   match C.state_accepts q with
     | some v => v
@@ -222,105 +65,6 @@ protected def FCellAutomata.state_pow_accepts' { C: FCellAutomata } (q: C.Q) (n:
       | 0 => false
       | k + 1 => C.state_pow_accepts' (q^1) k
 
-def FCellAutomata.state_pow_accepts { C: FCellAutomata } (q: C.Q): Bool :=
-  C.state_pow_accepts' q (C.inv_fin_q.card)
-
-def iterate {α : Type} (f : α → α) : Nat → α → α
-| 0     => id
-| (n+1) => f ∘ iterate f n
-
-def apply_iterated {α : Type} (f : α → α) (s: α) (n: ℕ) := iterate f n s
-
-instance {α: Type} : NatPow (α → α) where
-  pow := iterate
-
-theorem f_pow_fin { M } (h: Fintype M) (f: M → M) m: ∃ a b, a + b ≤ h.card ∧ ∀ t, (f^t) m = (f^(a + t % b)) m := sorry
-
-
-lemma f_pow_fin_lemma { M } { f: M → M } (h: (range f).Finite) (p: M → Prop) { m: M } (h: ∀ t, t <= h.fintype.card → p ((f^t) m)): ∀ t, p ((f^t) m) := by
-/-
-
-c: ℕ → M
-k > |M| => ∃ t <= |M| so that c k = c t
-
-Want to show: p ((f^t') m)
-=> exists t, t ∈ [1...h.fintype.card] so that `(f^t') m` = `(f^t) m`, assertion follows from `p ((f^t) m)`!
-->
-
-
-f: b^t: ℕ -> C
-
-∀ t: ∃ t' < |range f|: f t = f t'
-
-
-∀ i ∈ Fin |range f|: f i = none => ∀ i: f i = none
-
-
-
-
-
-
-
-
--/
-  sorry
-
-
-
-def next_state {C: CellAutomata} (q: C.Q): C.Q := C.δ q q q
-def state_power {C: CellAutomata} (q: C.Q) (t: ℕ): C.Q := iterate next_state t q
-
-
-def state_pow_accepts2 {C: FCellAutomata} := find_some_bounded (C.state_accepts ∘ state_power C.border) C.inv_fin_q.card
-
-
-
-
-
-/-
-find_some_bounded f h.k = some a => find_some f = some a
-find_some_bounded f h.k = none =>
-
--/
-  sorry
-
-
-lemma foo { α } (s: Finset α) (h: Fintype α): s.card ≤ h.card := by
-
-  sorry
-
-lemma f_pow_fin_lemma_fintype { M } { f: M → M } (m_fin: Fintype M) { p: M → Prop } { m: M } (h: ∀ t, t <= m_fin.card → p ((f^t) m)): ∀ t, p ((f^t) m) := by
-  have h': (range f).Finite := by
-    exact Finite.Set.finite_range f
-
-  have h'': h'.toFinset.card ≤ m_fin.card := by
-
-    sorry
-
-  apply f_pow_fin_lemma h'
-  intro t
-  intro h2
-  have y: t ≤ Fintype.card M := by linarith
-  exact h t y
-
-
-
-/-
-border^t = C.comp [] 0 t
-
-border_eventually_accepts := (first_some (fun t => C.state_accepts ((iterate δ1 t) border)) (card C.Q)) = some true
-
-
-x: D, t > |D|
-f^t x = f^(a + 2t mod k) x
-
-C.accepts w  <->  ∃ t: C.accepts_before (fun t => C.state_accepts $ comp w t 0) t = some true
-
--/
-
-theorem FCellAutomata.accepts_empty {C: FCellAutomata}: C.accepts [] ↔ C.state_pow_accepts C.border = true := by
-  unfold FCellAutomata.accepts
-  sorry
 
 @[simp]
 theorem FCellAutomata.passive_q_pow_eq_q {C: FCellAutomata} {q: C.Q} (h: C.passive q): q^1 = q := by
@@ -345,23 +89,63 @@ lemma FCellAutomata.state_pow_accepts'_of_passive {C: FCellAutomata} {q: C.Q} (h
       next x heq => simp_all only [reduceCtorEq, iff_false, not_true_eq_false]
     · intro a
       simp_all only [iff_true]
+-/
 
+
+instance h {C: FCellAutomata}: Nonempty C.Q := ⟨ C.border ⟩
+
+@[simp]
+theorem CellAutomata.Q_card_gt_zero {C: FCellAutomata}: C.inv_fin_q.card > 0 := by
+  have x := C.inv_fin_q.card_ne_zero
+  omega
+
+@[simp]
+theorem FCellAutomata.δδ_of_passive {C: FCellAutomata} {q: C.Q} (h: C.passive q): δδ q = q := by
+  simp_all [h, δδ, CellAutomata.passive, CellAutomata.passive_set]
+
+@[simp]
+theorem FCellAutomata.δδn_of_passive {C: FCellAutomata} {q: C.Q} (h: C.passive q): δδn q t = q := by
+  simp_all [δδn, δδ, apply_iterated, apply_iterated_fixed]
+  sorry
 
 @[simp]
 theorem FCellAutomata.state_pow_accepts_of_passive {C: FCellAutomata} {q: C.Q} (h: C.passive q):
-    C.state_pow_accepts q = (C.state_accepts q = some true) := by
-  simp [FCellAutomata.state_pow_accepts, FCellAutomata.state_pow_accepts'_of_passive h]
+    C.FCellAutomata.comp_state_accepts q = (C.state_accepts q = some true) := by
+  simp [FCellAutomata.comp_state_accepts, find_some_bounded_eq_some_iff, FCellAutomata.δδn_of_passive h]
+  intro h2
+  use 0
+  simp
 
 theorem FCellAutomata.accepts_empty_passive {C: FCellAutomata} (h: C.passive C.border):
     C.accepts [] ↔ C.state_accepts C.border = some true := by
-  rw [FCellAutomata.accepts_empty]
+  rw [FCellAutomata.accepts_empty_iff_comp_state_accepts_border]
   rw [FCellAutomata.state_pow_accepts_of_passive h]
 
 
 
+
+
+
+
+inductive lemma_1_Q (Q: Type u) where
+  | border
+  | state (s border: Q)
+deriving Inhabited, BEq, Repr, Fintype, DecidableEq
+
+syntax "[" term "|" term "]" : term
+macro_rules | `([$a | $b]) => `(lemma_1_Q.state $a $b)
+
+def lemma_1_Q.unwrap (q: lemma_1_Q Q) (b: Q) :=
+  match q with
+  | border => b
+  | state s _b => s
+
+open lemma_1_Q
+infix:50 " ?? " => unwrap
+
 def state_accepts (C: FCellAutomata)
 | [ s1 | _b1 ] => C.state_accepts s1
-| border => C.state_pow_accepts C.border
+| border => C.FCellAutomata.comp_state_accepts C.border
 
 def lemma_1_c (C: FCellAutomata): FCellAutomata :=
   let _inv_fin_q := C.inv_fin_q;
@@ -380,20 +164,6 @@ def lemma_1_c (C: FCellAutomata): FCellAutomata :=
   }
 
 
-def Word.cone (w: Word) (t: ℕ): Set ℤ := { i: ℤ | -t ≤ i ∧ i < w.length + t }
-
-instance (w: Word) (t: ℕ) (i: ℤ) [d: Decidable (i ∈ { i: ℤ | -t ≤ i ∧ i < w.length + t })]:
-  Decidable (i ∈ (Word.cone w t)) := d
-
-theorem Word.cone_prop {w: Word} {t: ℕ} {i: ℤ} (d: ℤ) (h: i ∉ w.cone (t + 1)) (h2: d.natAbs ≤ 1): (i + d) ∉ w.cone t := by
-  simp_all [Word.cone]
-  omega
-
-def word_get_cone_0 {w: Word} {i} (h: i ∈ w.cone 0) := w.get ⟨i.toNat, by simp_all [h, Word.cone]⟩
-
-theorem embed_word_eq_embed {C: LCellAutomata} {w: Word} {i} (h: i ∈ w.cone 0): C.embed_word w i = C.embed (word_get_cone_0 h) := by
-  simp [Word.cone] at h
-  simp [word_get_cone_0, LCellAutomata.embed_word, Word.cone, h]
 
 
 
@@ -602,7 +372,7 @@ theorem lemma_2_4_1_passive_initial_border (C: FCellAutomata.{u}):
       rw [List.length_eq_zero_iff] at wlen
       rw [wlen]
       rw [FCellAutomata.accepts_empty_passive a1]
-      rw [FCellAutomata.accepts_empty]
+      rw [FCellAutomata.accepts_empty_iff_comp_state_accepts_border]
       simp [C', lemma_1_c, state_accepts]
 
     case succ =>
