@@ -23,7 +23,7 @@ def Config (Q: Type*) := ℤ → Q
 def CellAutomata.next (ca: CellAutomata) (c: Config ca.Q): Config ca.Q :=
   fun i => ca.δ (c (i - 1)) (c i) (c (i + 1))
 
-def CellAutomata.comp (ca: CellAutomata): ℕ → Config ca.Q → Config ca.Q := Nat.iterate ca.next
+def CellAutomata.nextt (ca: CellAutomata): Config ca.Q → ℕ → Config ca.Q := apply_iterated ca.next
 
 
 variable (ca: CellAutomata)
@@ -43,7 +43,7 @@ def CellAutomata.initial (q: ca.Q) := ∀ a b c, ca.δ a b c = q → b = q
 
 def δδ { C: CellAutomata } (q: C.Q) := C.δ q q q
 
-def δδn { C: CellAutomata } (q: C.Q) := apply_iterated δδ q
+def δδt { C: CellAutomata } (q: C.Q) := apply_iterated δδ q
 
 
 
@@ -69,9 +69,7 @@ def LCellAutomata.embed_word (ca: LCellAutomata) (word: Word): Config ca.Q :=
     then ca.embed (word.get ⟨i.toNat, by omega⟩)
     else ca.border
 
-def LCellAutomata.comp (C: LCellAutomata) (w: Word)
-| 0 => C.embed_word w
-| t + 1 => C.next (C.comp w t)
+def LCellAutomata.comp (C: LCellAutomata) (w: Word) := C.nextt (C.embed_word w)
 
 /-- A state is an internal state if embedding an input does not produce it. -/
 def LCellAutomata.internal_state {C: LCellAutomata} (q: C.Q) := ∀ a: α, C.embed a ≠ q
@@ -97,9 +95,11 @@ noncomputable def min_nat (set: Set ℕ) :=
 noncomputable def FCellAutomata.time (C: FCellAutomata) (w: Word): Option ℕ :=
   min_nat { t | C.state_accepts (C.comp w t 0) ≠ none }
 
+def FCellAutomata.config_accepts (C: FCellAutomata) (c: Config C.Q) := C.state_accepts (c 0)
+
 def FCellAutomata.accepts (C: FCellAutomata) (w: Word) :=
   match C.time w with
-  | some t => C.state_accepts (C.comp w t 0) = some true
+  | some t => C.config_accepts (C.comp w t) = some true
   | none => False
 
 def FCellAutomata.L (C: FCellAutomata): Language α := { w: Word | C.accepts w }

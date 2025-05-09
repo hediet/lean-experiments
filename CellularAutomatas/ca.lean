@@ -9,7 +9,35 @@ variable [Alphabet]
 theorem LCellAutomata.comp_zero {C: LCellAutomata} {w}: C.comp w 0 = C.embed_word w := by rfl
 
 
+def FCellAutomata.comp_accepts {C: FCellAutomata} (w) := C.config_accepts ∘ C.comp w
 
+theorem FCellAutomata.time_eq {C: FCellAutomata} {w}: C.time w = Option.map Indexed.idx (find_some_idx (C.comp_accepts w)) :=
+  sorry
+
+theorem FCellAutomata.accepts_iff {C: FCellAutomata} {w}: C.accepts w ↔ find_some (C.comp_accepts w) = some true :=
+  sorry
+
+def uniform_config {C: CellAutomata} (q: C.Q): Config C.Q := fun _ => q
+
+
+theorem FCellAutomata.empty_word_config_eq_uniform_border {C: FCellAutomata}: C.embed_word [] = uniform_config C.border := by
+  funext i
+  simp [LCellAutomata.embed_word, uniform_config, uniform_config]
+
+
+
+theorem FCellAutomata.uniform_state_eq {C: FCellAutomata} {q: C.Q}: C.nextt (uniform_config q) = uniform_config ∘ (δδt q) := by
+  funext t i
+  simp only [CellAutomata.nextt, δδt, Function.comp_apply, uniform_config]
+
+  induction t generalizing i
+  case h.h.zero =>
+    simp [uniform_config, apply_iterated_zero]
+  case h.h.succ n ih =>
+    simp [apply_iterated_succ_apply', ih, δδ, CellAutomata.next, uniform_config]
+
+theorem FCellAutomata_comp_empty_eq_uniform {C: FCellAutomata}: C.comp [] = uniform_config ∘ (δδt C.border) := by
+  simp [LCellAutomata.comp, FCellAutomata.empty_word_config_eq_uniform_border, FCellAutomata.uniform_state_eq]
 
 
 def Word.cone (w: Word) (t: ℕ): Set ℤ := { i: ℤ | -t ≤ i ∧ i < w.length + t }
@@ -31,12 +59,25 @@ theorem embed_word_eq_embed {C: LCellAutomata} {w: Word} {i} (h: i ∈ w.cone 0)
 
 
 def FCellAutomata.comp_state_accepts { C: FCellAutomata } (q: C.Q) :=
-  find_some_bounded (C.state_accepts ∘ δδn q) C.inv_fin_q.card == some true
+  find_some_bounded (C.state_accepts ∘ δδt q) C.inv_fin_q.card == some true
+
+@[simp]
+lemma FCellAutomata.uniform_config_accepts_eq {C: FCellAutomata}: (C.config_accepts ∘ uniform_config) = C.state_accepts := by
+  funext
+  simp [FCellAutomata.config_accepts, uniform_config]
+
+def state_accepts_repeatingFunction (C: FCellAutomata): RepeatingFunction (C.state_accepts ∘ δδt C.border) := by
+  apply repeating_function_of_composition
+  unfold δδt
+  apply repeating_function_of_iterate_fin_type (C.inv_fin_q)
 
 
 theorem FCellAutomata.accepts_empty_iff_comp_state_accepts_border {C: FCellAutomata}: C.accepts [] ↔ C.comp_state_accepts C.border = true := by
-  unfold FCellAutomata.accepts
-  sorry
+  simp only [accepts_iff, comp_accepts, FCellAutomata_comp_empty_eq_uniform, comp_state_accepts, beq_iff_eq]
+  rw [←Function.comp_assoc]
+  simp [FCellAutomata.uniform_config_accepts_eq]
+  rw [←find_some_bounded_eq_find_some_of_repeating_function (state_accepts_repeatingFunction C)]
+  simp [state_accepts_repeatingFunction, RepeatingFunction, repeating_function_of_composition, repeating_function_of_iterate_fin_type ]
 
 
 /-
@@ -104,8 +145,8 @@ theorem FCellAutomata.δδ_of_passive {C: FCellAutomata} {q: C.Q} (h: C.passive 
   simp_all [h, δδ, CellAutomata.passive, CellAutomata.passive_set]
 
 @[simp]
-theorem FCellAutomata.δδn_of_passive {C: FCellAutomata} {q: C.Q} (h: C.passive q): δδn q t = q := by
-  simp_all [δδn, δδ, apply_iterated, apply_iterated_fixed]
+theorem FCellAutomata.δδn_of_passive {C: FCellAutomata} {q: C.Q} (h: C.passive q): δδt q t = q := by
+  simp_all [δδt, δδ, apply_iterated, apply_iterated_fixed]
   sorry
 
 @[simp]
