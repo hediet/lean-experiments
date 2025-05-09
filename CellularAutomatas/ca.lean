@@ -74,8 +74,7 @@ def state_accepts_repeatingFunction (C: FCellAutomata): RepeatingFunction (C.sta
 
 theorem FCellAutomata.accepts_empty_iff_comp_state_accepts_border {C: FCellAutomata}: C.accepts [] ↔ C.comp_state_accepts C.border = true := by
   simp only [accepts_iff, comp_accepts, FCellAutomata_comp_empty_eq_uniform, comp_state_accepts, beq_iff_eq]
-  rw [←Function.comp_assoc]
-  simp [FCellAutomata.uniform_config_accepts_eq]
+  simp only [←Function.comp_assoc, FCellAutomata.uniform_config_accepts_eq]
   rw [←find_some_bounded_eq_find_some_of_repeating_function (state_accepts_repeatingFunction C)]
   simp [state_accepts_repeatingFunction, RepeatingFunction, repeating_function_of_composition, repeating_function_of_iterate_fin_type ]
 
