@@ -185,7 +185,7 @@ infix:50 " ?? " => unwrap
 
 def state_accepts (C: FCellAutomata)
 | [ s1 | _b1 ] => C.state_accepts s1
-| border => C.FCellAutomata.comp_state_accepts C.border
+| border => C.comp_state_accepts C.border
 
 def lemma_1_c (C: FCellAutomata): FCellAutomata :=
   let _inv_fin_q := C.inv_fin_q;
