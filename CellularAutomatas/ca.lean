@@ -33,8 +33,7 @@ theorem FCellAutomata.comp_accepts_eq_config_accepts_comp {C: FCellAutomata} {w}
   simp [comp_accepts]
 
 theorem FCellAutomata.accepts_iff {C: FCellAutomata} {w}: C.accepts w ↔ find_some (C.comp_accepts w) = some true := by
-  simp only [FCellAutomata.accepts, FCellAutomata.time_eq, find_some_idx, ← comp_accepts_eq_config_accepts_comp]
-  unfold find_some
+  simp only [FCellAutomata.accepts, FCellAutomata.time_eq, find_some_idx, ←comp_accepts_eq_config_accepts_comp, find_some]
   cases c: find_some_idxd (comp_accepts w)
   case none =>
     simp_all
@@ -173,18 +172,15 @@ theorem CellAutomata.Q_card_gt_zero {C: FCellAutomata}: C.inv_fin_q.card > 0 := 
   have x := C.inv_fin_q.card_ne_zero
   omega
 
-@[simp]
 theorem FCellAutomata.δδ_of_passive {C: FCellAutomata} {q: C.Q} (h: C.passive q): δδ q = q := by
   simp_all [h, δδ, CellAutomata.passive, CellAutomata.passive_set]
 
 @[simp]
 theorem FCellAutomata.δδn_of_passive {C: FCellAutomata} {q: C.Q} (h: C.passive q): δδt q t = q := by
-  simp_all [δδt, δδ, apply_iterated, apply_iterated_fixed]
-  sorry
+  simp_all [δδt, δδ, apply_iterated_fixed (FCellAutomata.δδ_of_passive h)]
 
 @[simp]
-theorem FCellAutomata.state_pow_accepts_of_passive {C: FCellAutomata} {q: C.Q} (h: C.passive q):
-    C.FCellAutomata.comp_state_accepts q = (C.state_accepts q = some true) := by
+theorem FCellAutomata.state_pow_accepts_of_passive {C: FCellAutomata} {q: C.Q} (h: C.passive q): C.comp_state_accepts q = (C.state_accepts q = some true) := by
   simp [FCellAutomata.comp_state_accepts, find_some_bounded_eq_some_iff, FCellAutomata.δδn_of_passive h]
   intro h2
   use 0
@@ -194,8 +190,6 @@ theorem FCellAutomata.accepts_empty_passive {C: FCellAutomata} (h: C.passive C.b
     C.accepts [] ↔ C.state_accepts C.border = some true := by
   rw [FCellAutomata.accepts_empty_iff_comp_state_accepts_border]
   rw [FCellAutomata.state_pow_accepts_of_passive h]
-
-
 
 
 
@@ -230,7 +224,7 @@ def lemma_1_c (C: FCellAutomata): FCellAutomata :=
     δ
       | a@([_ | br]), b,            c
       | a,            b@([_ | br]), c
-      | a,            b,            c@([_ | br])  => [ C.δ (a ?? br) (b ?? br) (c ?? br) | br^1 ]
+      | a,            b,            c@([_ | br])  => [ C.δ (a ?? br) (b ?? br) (c ?? br) | δδ br ]
       | border,       border,     border          => border
     embed a := state (C.embed a) C.border,
     border := border,
