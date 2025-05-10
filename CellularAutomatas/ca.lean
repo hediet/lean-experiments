@@ -511,3 +511,20 @@ theorem lemma_2_3_1_F_delta_closed (C: FCellAutomata):
 
   sorry
 -/
+
+
+
+
+
+theorem const_speed_up1: ℒ (tCellAutomatas |> t⦃ n - 1 + k + 1 ⦄) = ℒ (tCellAutomatas |> t⦃ n - 1 + k ⦄) := sorry
+
+
+-- Q -> fun Q -> Q
+def φ {C: tCellAutomata} (c: C.Q) (b: C.Q) := (b, fun a => δ a b c)
+
+def Sp {C: tCellAutomata} := {
+  Q := C.Q × Option (C.Q → C.Q)
+  δ
+  | (aq, af) (bq, bf) (cq, none) := (δ aq bq cq, none)
+  | (aq, af) (bq, bf) (cq, some cf) := φ (cf bq) (δ aq bq cq)
+}

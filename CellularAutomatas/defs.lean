@@ -110,6 +110,9 @@ def FCellAutomatas [α: Alphabet]: Set FCellAutomata := fun _a => true
 instance : DefinesLanguage FCellAutomata where
   L ca := ca.L
 
+instance : DefinesTime FCellAutomata where
+  t ca w := ca.time w
+
 instance : Coe FCellAutomata CellAutomata where
   coe ca := ca.toCellAutomata
 
@@ -124,10 +127,13 @@ structure tCellAutomata extends LCellAutomata where
 def tCellAutomata.L (C: tCellAutomata): Language α := fun w =>
   (C.comp w (C.t w.length)) 0 ∈ C.F_pos
 
-def tCellAutomatas [α: Alphabet]: Set tCellAutomata := fun _a => true
+def tCellAutomatas [α: Alphabet]: Set tCellAutomata := univ
 
 instance : DefinesLanguage tCellAutomata where
   L ca := ca.L
+
+instance : DefinesTime tCellAutomata where
+  t ca w := some (ca.t w.len)
 
 instance : Coe tCellAutomata CellAutomata where
   coe ca := ca.toCellAutomata
@@ -135,12 +141,6 @@ instance : Coe tCellAutomata CellAutomata where
 
 
 
-
-instance : DefinesTime FCellAutomata where
-  t ca := sorry
-
-instance : DefinesTime tCellAutomata where
-  t ca := sorry
 
 
 
@@ -165,7 +165,13 @@ def with_time { β: Type u } [DefinesTime β] (fns: Set (ℕ → ℕ)) (set: Set
 syntax term "&" term : term
 macro_rules | `($a & $b) => `($b $a)
 
+syntax "t⦃" term "⦄" : term
+macro_rules | `(t⦃ $expr ⦄) => `(with_time { fun $(Lean.mkIdent `n) => $expr })
 
-def RT := tCellAutomatas & with_time { fun n => n - 1 }
+def RT := tCellAutomatas |> t⦃ n - 1 ⦄
+
+
+theorem const_speed_up (k: ℕ): ℒ (tCellAutomatas |> t⦃ n + k ⦄) = ℒ (RT) := sorry
+
 
 theorem X: ℒ (RT) = ℒ (FCellAutomatas & OCA_L) := sorry
