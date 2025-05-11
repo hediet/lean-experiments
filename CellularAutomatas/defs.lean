@@ -3,6 +3,7 @@ import CellularAutomatas.find_some
 
 open Set
 
+
 class Alphabet where
   (α: Type 0)
 
@@ -11,6 +12,20 @@ variable [Alphabet]
 def α [Alphabet] := Alphabet.α
 
 def Word := List α
+
+
+def Word.range (w: Word): Set ℤ := { i: ℤ | i ≥ 0 ∧ i < w.length }
+
+instance (w: Word) (i: ℤ) [d: Decidable (i ∈ { i: ℤ | i ≥ 0 ∧ i < w.length })]:
+  Decidable (i ∈ w.range) := d
+
+def Word.get' (w: Word) (i: ℤ) (h: i ∈ w.range) := w.get ⟨
+    i.toNat,
+    by
+      simp [Word.range] at h
+      omega
+⟩
+
 
 structure CellAutomata where
   Q: Type u
@@ -29,14 +44,18 @@ def CellAutomata.nextt (ca: CellAutomata): Config ca.Q → ℕ → Config ca.Q :
 variable (ca: CellAutomata)
 
 def CellAutomata.passive_set (Q: Set ca.Q) := ∀ (a b c: Q), ca.δ a b c = b
+
+/-- A state is passive if, when its surrounded by itself, doesn't change -/
 def CellAutomata.passive (q: ca.Q) := ca.passive_set { q }
 
 def CellAutomata.delta_closed_set (Q: Set ca.Q) := ∀ a (b: Q) c, ca.δ a b c ∈ Q
+/-- A state is dead if no matter what, it doesn't change -/
 def CellAutomata.dead (q: ca.Q) := ca.delta_closed_set {q}
 
 def CellAutomata.left_independent := ∀ (q1 q2 q3 q1'), ca.δ q1 q2 q3 = ca.δ q1' q2 q3
 def CellAutomata.right_independent := ∀ (q1 q2 q3 q3'), ca.δ q1 q2 q3 = ca.δ q1 q2 q3'
 
+/-- A state is initial if it cannot be created -/
 def CellAutomata.initial (q: ca.Q) := ∀ a b c, ca.δ a b c = q → b = q
 
 
@@ -63,10 +82,10 @@ structure LCellAutomata extends CellAutomata where
   embed: α → Q
   border: Q
 
-def LCellAutomata.embed_word (ca: LCellAutomata) (word: Word): Config ca.Q :=
+def LCellAutomata.embed_word (ca: LCellAutomata) (w: Word): Config ca.Q :=
   fun i =>
-    if h: i ≥ 0 ∧ i < word.length
-    then ca.embed (word.get ⟨i.toNat, by omega⟩)
+    if h: i ∈ w.range
+    then ca.embed (w.get' i h)
     else ca.border
 
 def LCellAutomata.comp (C: LCellAutomata) (w: Word) := C.nextt (C.embed_word w)
@@ -110,7 +129,7 @@ def FCellAutomatas [α: Alphabet]: Set FCellAutomata := fun _a => true
 instance : DefinesLanguage FCellAutomata where
   L ca := ca.L
 
-instance : DefinesTime FCellAutomata where
+noncomputable instance : DefinesTime FCellAutomata where
   t ca w := ca.time w
 
 instance : Coe FCellAutomata CellAutomata where
@@ -133,7 +152,7 @@ instance : DefinesLanguage tCellAutomata where
   L ca := ca.L
 
 instance : DefinesTime tCellAutomata where
-  t ca w := some (ca.t w.len)
+  t ca w := some (ca.t w.length)
 
 instance : Coe tCellAutomata CellAutomata where
   coe ca := ca.toCellAutomata
