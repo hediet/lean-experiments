@@ -6,6 +6,7 @@ open Set
 
 class Alphabet where
   (α: Type 0)
+  [fin: Fintype α]
 
 variable [Alphabet]
 
@@ -73,7 +74,7 @@ def ℒ [DefinesLanguage CA] (s: (Set CA)): Set (Language α) :=
   fun L => ∃ ca: CA, ca ∈ s ∧ L = DefinesLanguage.L ca
 
 class DefinesTime (CA: Type u) where
-  t: CA -> Word → Option ℕ
+  t: CA -> Word → WithTop ℕ
 
 
 -- # =============== LCellAutomata ===============
@@ -156,41 +157,3 @@ instance : DefinesTime tCellAutomata where
 
 instance : Coe tCellAutomata CellAutomata where
   coe ca := ca.toCellAutomata
-
-
-
-
-
-
-
-
-def t_max [DefinesTime CA] (ca: CA) (n: ℕ): Option ℕ := sorry
-
-def halts [DefinesTime CA] (ca: CA): Prop :=
-  ∀ n: ℕ, t_max ca n ≠ none
-
-def t_max' [DefinesTime CA] (ca: CA) (h: halts ca) (n: ℕ): ℕ := sorry
-
-def OCA_L { β: Type u } [Coe β CellAutomata] (set: Set β): Set β :=
-  fun ca => ca ∈ set ∧ CellAutomata.left_independent ca
-
-def OCA_R { β: Type u } [Coe β CellAutomata] (set: Set β): Set β :=
-  fun ca => ca ∈ set ∧ CellAutomata.right_independent ca
-
-def with_time { β: Type u } [DefinesTime β] (fns: Set (ℕ → ℕ)) (set: Set β): Set β :=
-  fun ca => ca ∈ set ∧ halts ca ∧ ((h: halts ca) → ((t_max' ca h) ∈ fns))
-
-
-syntax term "&" term : term
-macro_rules | `($a & $b) => `($b $a)
-
-syntax "t⦃" term "⦄" : term
-macro_rules | `(t⦃ $expr ⦄) => `(with_time { fun $(Lean.mkIdent `n) => $expr })
-
-def RT := tCellAutomatas |> t⦃ n - 1 ⦄
-
-
-theorem const_speed_up (k: ℕ): ℒ (tCellAutomatas |> t⦃ n + k ⦄) = ℒ (RT) := sorry
-
-
-theorem X: ℒ (RT) = ℒ (FCellAutomatas & OCA_L) := sorry

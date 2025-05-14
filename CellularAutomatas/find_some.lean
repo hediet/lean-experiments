@@ -40,7 +40,7 @@ lemma find_some_idxd_eq_none_iff { α } { f: ℕ → Option α }: find_some_idxd
   case neg h =>
     simp_all [h]
 
-lemma find_some_idxd_eq_some_iff { α } { f: ℕ → Option α } (val): find_some_idxd f = some val ↔ f val.idx = some val.val ∧ ∀ i < val.idx, f i = none := by
+lemma find_some_idxd_eq_some_iff { α } { f: ℕ → Option α } {val}: find_some_idxd f = some val ↔ f val.idx = some val.val ∧ ∀ i < val.idx, f i = none := by
   let _dec := Classical.dec;
   unfold find_some_idxd
   simp only [Option.some_get, Option.dite_none_right_eq_some]
@@ -67,6 +67,19 @@ lemma find_some_idxd_eq_some_iff { α } { f: ℕ → Option α } (val): find_som
 
     rw [←Nat.find_eq_iff h''] at hk2
     simp_all
+
+lemma find_some_eq_some_iff { α } { f: ℕ → Option α } (val):
+    find_some f = some val ↔ ∃ t, f t = some val ∧ ∀ i < t, f i = none := by
+  unfold find_some
+  simp [find_some_idxd_eq_some_iff]
+  constructor
+  · intro h
+    have ⟨ a, h ⟩ := h
+    use a.idx
+    simp_all
+  · intro h
+    have ⟨ a, h ⟩ := h
+    use ⟨ val, a ⟩
 
 lemma unroll_all2 (b) (p: ℕ → Prop): (∀ j, b ≤ j → p j) ↔ p b ∧ ∀ j, b + 1 ≤ j → p j := by
   apply Iff.intro
@@ -109,7 +122,11 @@ private lemma find_some_bounded_acc_eq_none_iff { α } { f: ℕ → Option α } 
       simp [c]
 
 
-lemma find_some_bounded_eq_none_iff { α } { f: ℕ → Option α } (k): find_some_bounded_idx f k = none ↔ ∀ j < k, f j = none := by simp [find_some_bounded_idx, find_some_bounded_acc_eq_none_iff]
+lemma find_some_bounded_idx_eq_none_iff { α } { f: ℕ → Option α } (k): find_some_bounded_idx f k = none ↔ ∀ j < k, f j = none := by
+  simp [find_some_bounded_idx, find_some_bounded_acc_eq_none_iff]
+
+lemma find_some_bounded_eq_none_iff { α } { f: ℕ → Option α } (k): find_some_bounded f k = none ↔ ∀ j < k, f j = none := by
+  simp [find_some_bounded, find_some_bounded_idx_eq_none_iff]
 
 
 private lemma find_some_bounded_acc_eq_some_iff { α } { f: ℕ → Option α } (s len val): find_some_bounded_acc f s len = some val ↔ f val.idx = some val.val ∧ val.idx ∈ Set.Ico s (s + len) ∧ ∀ j ∈ Set.Ico s val.idx, f j = none := by
@@ -192,7 +209,7 @@ lemma find_some_eq_none_iff_find_some_bounded_eq_none { α } { f: ℕ → Option
   rw [find_some_idxd_eq_none_iff]
   conv =>
     pattern find_some_bounded_idx _ _ = _
-    rw [find_some_bounded_eq_none_iff]
+    rw [find_some_bounded_idx_eq_none_iff]
   apply Iff.intro
   · intro a k
     simp [a (k+1) k]
@@ -405,7 +422,7 @@ lemma find_some_bounded_idx_eq_find_some_idxd_of_repeating_function { α } { f: 
     exact c.2.2
 
   case none =>
-    simp [find_some_bounded_eq_none_iff] at c
+    simp [find_some_bounded_idx_eq_none_iff] at c
     apply Eq.symm
     rw [find_some_idxd_eq_none_iff]
     simp_all [repeating_function_forall h (fun val => val = none)]

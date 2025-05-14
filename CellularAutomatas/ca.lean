@@ -3,6 +3,34 @@ import CellularAutomatas.defs
 import CellularAutomatas.common
 import CellularAutomatas.find_some
 
+theorem find_some_bounded_succ {α} (f: ℕ → Option α) (t): find_some_bounded f (t+1) = (find_some_bounded f t).or (f t) := by
+  cases c: (find_some_bounded f t).or (f t)
+  case none =>
+    simp_all [find_some_bounded_eq_none_iff]
+    intro j h
+    have hj := c.1 j
+    by_cases c2: j = t
+    · simp_all
+    · have := Nat.lt_succ_iff_lt_or_eq.mp h
+      simp_all
+  case some val =>
+    simp_all [find_some_bounded_eq_some_iff]
+    cases c
+    case inl h2 =>
+      have ⟨ t, h2 ⟩ := h2
+      use t
+      simp_all
+      omega
+    case inr h2 =>
+      simp [find_some_bounded_eq_none_iff] at h2
+      use t
+      simp_all
+
+@[simp]
+theorem find_some_bounded_zero {α} (f: ℕ → Option α): find_some_bounded f 0 = none := by
+  simp [find_some_bounded_eq_none_iff]
+
+
 theorem min_nat_eq {f: ℕ -> Option Bool}: min_nat { i | f i ≠ none } = find_some_idx f := by
   unfold min_nat find_some_idx
   cases c: find_some_idxd f
@@ -379,119 +407,130 @@ theorem lemma_2_4_1_passive_initial_border (C: FCellAutomata.{u}):
   simp [a1, a2, a3, a4]
 
 
-
-  /-
-  have h' { w } (wlen: w.length ≠ 0): C.state_accept_seq 0 w = C'.state_accept_seq 0 w := by
-    unfold FCellAutomata.state_accept_seq
-    funext t
-
-    have h'': C'.comp w t 0 ≠ border := by
-      apply LCellAutomata.initial_internal_of_cone
-      simp [Word.cone]
-      omega
-      simp_all only [a2, C', ne_eq, List.length_eq_zero_iff, C']
-      exact a2
-      simp_all only [ne_eq, List.length_eq_zero_iff, C']
-      exact a3
-
-    rw [←h]
-    conv =>
-      pattern C'.state_accepts
-      unfold C'
-      unfold lemma_1_c
-      simp
-
-    unfold state_accepts
-    cases c: C'.comp w t 0
-    case h.border => simp_all [C']
-    case h.state s sb =>  simp [C', lemma_1_c, unwrap]
-
-
-  have hh: ∀ w, (w ∈ C'.L ↔ w ∈ C.L) ↔ (C'.accepts w ↔ C.accepts w) := by
-    intro w
-    simp_all only [C', FCellAutomata.L]
-    rfl
-
-  have h: C'.L = C.L := by
-    ext w
-    cases wlen: w.length
-
-    case zero =>
-      rw [hh]
-      rw [List.length_eq_zero_iff] at wlen
-      rw [wlen]
-      rw [FCellAutomata.accepts_empty_passive a1]
-      rw [FCellAutomata.accepts_empty_iff_comp_state_accepts_border]
-      simp [C', lemma_1_c, state_accepts]
-
-    case succ =>
-      have wlen: w.length ≠ 0 := by simp_all [C']
-      rw [eq_L]
-      simp [h' wlen]
-
-  simp [a1, a2, h]
--/
-
-
-
-/-
-
-inductive LemmaCases where
-  | computing
-  | accept
-  | reject
-deriving Inhabited, BEq, Repr, Fintype, DecidableEq
-
 def lemma_C' (C: FCellAutomata): FCellAutomata :=
-  let _h := C.inv_fin;
-  let _x := C.inv_decidable;
+  let _h := C.inv_fin_q;
+  let _x := C.inv_decidable_q;
   {
-    Q := C.Q × LemmaCases,
-    δ := fun (a, fa) (b, fb) (c, fc) =>
-      let r := C.δ a b c; (
-        r,
-        if fb ≠ LemmaCases.computing then fb else
-        if r ∈ C.F_pos then LemmaCases.accept else
-        if r ∈ C.F_neg then LemmaCases.reject else
-        LemmaCases.computing
-      ),
-    inv_fin := instFintypeProd C.Q LemmaCases,
-    embed := fun a => (C.embed a, LemmaCases.computing),
-    border := (C.border, LemmaCases.computing),
-    F_pos := { x: C.Q × LemmaCases | x.snd = LemmaCases.accept },
-    F_neg := { x: C.Q × LemmaCases | x.snd = LemmaCases.reject },
+    Q := C.Q × Option Bool,
+    δ := fun (a, _fa) (b, fb) (c, _fc) =>
+      let r := C.δ a b c; (r, fb.or (C.state_accepts r)),
+    inv_fin_q := instFintypeProd C.Q (Option Bool),
+    embed := fun a => (C.embed a, C.state_accepts (C.embed a)),
+    border := (C.border, C.state_accepts C.border),
+    state_accepts | (_q, a) => a
   }
 
-theorem lemma_2_3_1_F_delta_closed (C: FCellAutomata):
+def FCellAutomata.F_pos { C': FCellAutomata } := { q: C'.Q | C'.state_accepts q = some true }
+def FCellAutomata.F_neg { C': FCellAutomata } := { q: C'.Q | C'.state_accepts q = some false }
+
+def FCellAutomata.accept_delta_closed (C: FCellAutomata) := C.delta_closed_set C.F_pos ∧ C.delta_closed_set C.F_neg
+
+noncomputable def FCellAutomata.time' (C: FCellAutomata) (w: Word): ℕ := (C.time w).getD 0
+
+
+theorem find_some_eq_val_at_find_some_idx {α} (f: ℕ → Option α): find_some f = f ((find_some_idx f).getD 0) := by
+  unfold find_some
+  unfold find_some_idx
+  cases c: find_some_idxd f
+  case none => simp [find_some_idxd_eq_none_iff.mp c]
+  case some val => simp [find_some_idxd_eq_some_iff.mp c]
+
+
+theorem FCellAutomata.accepts_iff_time (C: FCellAutomata) (w: Word):
+    C.accepts w ↔ C.comp_accepts w (C.time' w) = some true := by
+  unfold FCellAutomata.time'
+  rw [time_eq]
+  rw [C.accepts_iff]
+  rw [find_some_eq_val_at_find_some_idx (comp_accepts w)]
+
+
+
+
+
+
+
+theorem accept_delta_closed (C: FCellAutomata) (h: C.accept_delta_closed) (k: ℕ):
+  C.accepts w ↔ C.comp_accepts w (C.time' w + k) = some true
+:= by
+  induction k
+
+  case zero => simp [C.accepts_iff_time]
+  case succ t =>
+    sorry
+
+  constructor
+  · intro h
+    have ⟨ t, h ⟩ := h
+    use t
+    simp_all
+
+  intro h
+  have ⟨ t, h ⟩ := h
+
+  set r := find_some_idxd (C.comp_accepts w)
+  cases c: r
+  case mpr.none =>
+    simp [r] at c
+    rw [find_some_idxd_eq_none_iff] at c
+    simp_all
+
+  case mpr.some val =>
+    simp [r] at c
+    rw [find_some_idxd_eq_some_iff] at c
+
+
+
+  use t
+
+
+
+theorem lemma_2_3_1_F_accept_delta_closed (C: FCellAutomata):
   ∃ C': FCellAutomata,
     C'.L = C.L
   ∧ DefinesTime.t C' = DefinesTime.t C
-  ∧ ∀ f: C'.F_pos, C'.dead f
-  ∧ ∀ f: C'.F_neg, C'.dead f
+  ∧ C'.accept_delta_closed
 := by
 
   let C': FCellAutomata := lemma_C' C
 
 
-  have h (w: Word) n i: C.comp w n i = (C'.comp w n i).fst  := by
-    induction n using LCellAutomata.comp.induct generalizing i with
-    | case1 =>
-      simp [LCellAutomata.embed_word, LCellAutomata.comp, C', lemma_C']
+  have h (w: Word) t i: C.comp w t i = (C'.comp w t i).fst  := by
+    induction t generalizing i with
+    | zero =>
+      simp [LCellAutomata.embed_word, C', lemma_C']
       split
-      next h_1 => simp_all only [C']
-      next h_1 => simp_all only [C']
+      next h_1 => simp_all
+      next h_1 => simp_all
 
-    | case2 k ih =>
-      unfold LCellAutomata.comp CellAutomata.next
-      rw [ih]
-      rw [ih]
-      rw [ih]
-      simp_all only [ne_eq, ite_not, C']
-      rfl
+    | succ t ih =>
+      sorry
+
+  have h2 (w: Word) t: (C'.comp w t 0).snd = find_some_bounded (C.config_accepts ∘ C.comp w) (t + 1) := by
+    induction t with
+    | zero =>
+      simp [C', LCellAutomata.embed_word, find_some_bounded_succ, FCellAutomata.config_accepts]
+
+      split
+      · simp [lemma_C']
+      · simp [lemma_C']
+
+    | succ t ih =>
+      simp [CellAutomata.comp_succ_eq, CellAutomata.next]
+      rw [find_some_bounded_succ]
+      rw [←ih]
+      simp [CellAutomata.comp_succ_eq]
+      have : C.comp w t = Prod.fst ∘ C'.comp w t := by
+        have x := h w t
+        funext i
+        simp_all
+
+      rw [this]
+      set c := C'.comp w t
+      simp [FCellAutomata.config_accepts, CellAutomata.next, C', lemma_C']
 
 
-  sorry
--/
+
+
 
 
 
@@ -509,3 +548,66 @@ def Sp {C: tCellAutomata} := {
   | (aq, af) (bq, bf) (cq, none) := (δ aq bq cq, none)
   | (aq, af) (bq, bf) (cq, some cf) := φ (cf bq) (δ aq bq cq)
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+--instance : Fintype { w: List α | w.length = n } where
+--  elems := (Fintype.elems (Vector α n)).image (λ v => ⟨v.toList, by simp⟩)
+
+
+
+instance (f: Word → β) (s: Set Word) [d: Fintype s]: Fintype ↑(f '' s) := d
+
+
+
+noncomputable def t_max [DefinesTime CA] (ca: CA) (n: ℕ): WithTop ℕ :=
+  Finset.max' ((DefinesTime.t ca '' { w: Word | w.length = n }).toFinset) (by sorry)
+
+def halts [DefinesTime CA] (ca: CA): Prop :=
+  ∀ n: ℕ, t_max ca n ≠ none
+
+noncomputable def t_max' [DefinesTime CA] (ca: CA) (h: halts ca) (n: ℕ): ℕ :=
+  (t_max ca n).get (by simp_all[h, halts, Option.isSome_iff_ne_none])
+
+def OCA_L { β: Type u } [Coe β CellAutomata] (set: Set β): Set β :=
+  fun ca => ca ∈ set ∧ CellAutomata.left_independent ca
+
+def OCA_R { β: Type u } [Coe β CellAutomata] (set: Set β): Set β :=
+  fun ca => ca ∈ set ∧ CellAutomata.right_independent ca
+
+def with_time { β: Type u } [DefinesTime β] (fns: Set (ℕ → ℕ)) (set: Set β): Set β :=
+  fun ca => ca ∈ set ∧ halts ca ∧ ((h: halts ca) → ((t_max' ca h) ∈ fns))
+
+
+syntax term "&" term : term
+macro_rules | `($a & $b) => `($b $a)
+
+syntax "t⦃" term "⦄" : term
+macro_rules | `(t⦃ $expr ⦄) => `(with_time { fun $(Lean.mkIdent `n) => $expr })
+
+def RT := tCellAutomatas |> t⦃ n - 1 ⦄
+
+
+
+
+
+
+theorem const_speed_up (k: ℕ): ℒ (tCellAutomatas |> t⦃ n + k ⦄) = ℒ (RT) := sorry
+
+theorem OCA_L_equiv_FCA: ℒ (FCellAutomatas) = ℒ (FCellAutomatas |> OCA_L) := sorry
+
+-- Open problems!
+theorem X: ℒ (RT) ≠ ℒ (FCellAutomatas |> t⦃ 2 * n ⦄) := sorry
