@@ -27,6 +27,8 @@ def find_some_bounded_idx { α } (f: ℕ → Option α) (k: ℕ) := find_some_bo
 
 def find_some_bounded { α } (f: ℕ → Option α) := Option.map Indexed.val ∘ find_some_bounded_idx f
 
+
+
 lemma find_some_idxd_eq_none_iff { α } { f: ℕ → Option α }: find_some_idxd f = none ↔ ∀ i, f i = none := by
   unfold find_some_idxd
   split_ifs
@@ -67,6 +69,40 @@ lemma find_some_idxd_eq_some_iff { α } { f: ℕ → Option α } {val}: find_som
 
     rw [←Nat.find_eq_iff h''] at hk2
     simp_all
+
+
+lemma find_some_idx_eq_none_iff { α } { f: ℕ → Option α }: find_some_idx f = none ↔ ∀ i, f i = none := by
+  simp [find_some_idx, find_some_idxd_eq_none_iff]
+
+lemma find_some_idx_eq_some_iff { α } { f: ℕ → Option α }:
+    find_some_idx f = some t ↔ ∃ val, f t = some val ∧ ∀ i < t, f i = none := by
+  unfold find_some_idx
+  simp [find_some_idxd_eq_some_iff]
+  constructor
+  · intro h
+    have ⟨ a, h ⟩ := h
+    constructor
+    · use a.val
+      simp [←h.2, h.1]
+    · simp_all
+  · intro h
+    have ⟨ ⟨ val, h ⟩, h2 ⟩ := h
+    use ⟨ val, t ⟩
+
+lemma find_some_idx_eq_some_iff' { α } { f: ℕ → Option α }:
+    find_some_idx f = some t ↔ ∃ val, f t = some val ∧ ∀ i < t, f i = none := by
+  unfold find_some_idx
+  simp [find_some_idxd_eq_some_iff]
+  constructor
+  · intro h
+    have ⟨ a, h ⟩ := h
+    constructor
+    · use a.val
+      simp [←h.2, h.1]
+    · simp_all
+  · intro h
+    have ⟨ ⟨ val, h ⟩, h2 ⟩ := h
+    use ⟨ val, t ⟩
 
 lemma find_some_eq_some_iff { α } { f: ℕ → Option α } (val):
     find_some f = some val ↔ ∃ t, f t = some val ∧ ∀ i < t, f i = none := by

@@ -49,6 +49,7 @@ def CellAutomata.passive_set (Q: Set ca.Q) := ∀ (a b c: Q), ca.δ a b c = b
 /-- A state is passive if, when its surrounded by itself, doesn't change -/
 def CellAutomata.passive (q: ca.Q) := ca.passive_set { q }
 
+/-- A set state is closed if no matter what, cells having such a state remain in that set -/
 def CellAutomata.delta_closed_set (Q: Set ca.Q) := ∀ a (b: Q) c, ca.δ a b c ∈ Q
 /-- A state is dead if no matter what, it doesn't change -/
 def CellAutomata.dead (q: ca.Q) := ca.delta_closed_set {q}

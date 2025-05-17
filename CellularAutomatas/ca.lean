@@ -31,6 +31,15 @@ theorem find_some_bounded_zero {α} (f: ℕ → Option α): find_some_bounded f 
   simp [find_some_bounded_eq_none_iff]
 
 
+theorem find_some_eq_val_at_find_some_idx {α} (f: ℕ → Option α): find_some f = f ((find_some_idx f).getD 0) := by
+  unfold find_some
+  unfold find_some_idx
+  cases c: find_some_idxd f
+  case none => simp [find_some_idxd_eq_none_iff.mp c]
+  case some val => simp [find_some_idxd_eq_some_iff.mp c]
+
+
+
 theorem min_nat_eq {f: ℕ -> Option Bool}: min_nat { i | f i ≠ none } = find_some_idx f := by
   unfold min_nat find_some_idx
   cases c: find_some_idxd f
@@ -51,24 +60,48 @@ theorem δδt_succ {C: CellAutomata} {q: C.Q} {t: ℕ} : δδt q (t + 1) = δδ 
 theorem δδt_zero {C: CellAutomata} {q: C.Q} : δδt q 0 = q := by
   simp [δδt]
 
+
+
+theorem CellAutomata.next_state_of_closed_set_state
+  {C: CellAutomata} {S} {c: Config C.Q} {i} (h1: C.delta_closed_set S) (h2: c i ∈ S):
+    C.next c i ∈ S := by
+  unfold CellAutomata.next
+  unfold CellAutomata.delta_closed_set at h1
+  exact h1 (c (i - 1)) ⟨c i, h2⟩ (c (i + 1))
+
+
+
 variable [Alphabet]
 
 @[simp]
 theorem LCellAutomata.comp_zero {C: LCellAutomata} {w}: C.comp w 0 = C.embed_word w := by rfl
 
 
-def FCellAutomata.comp_accepts {C: FCellAutomata} (w) := C.config_accepts ∘ C.comp w
+def FCellAutomata.comp_accepts (C: FCellAutomata) (w) := C.config_accepts ∘ C.comp w
 
+
+-- noncomputable def FCellAutomata.accepts' {C: FCellAutomata} (w) := find_some (C.comp_accepts w) == some true
 
 theorem FCellAutomata.time_eq {C: FCellAutomata} {w}: C.time w = find_some_idx (C.comp_accepts w) := by
   simp [←min_nat_eq, FCellAutomata.time, comp_accepts, FCellAutomata.config_accepts]
+
+theorem FCellAutomata.time_eq_none_iff {C: FCellAutomata} {w} : C.time w = none ↔ ∀ t, C.comp_accepts w t = none := by
+  simp [FCellAutomata.time_eq, find_some_idx_eq_none_iff]
+
+
+theorem FCellAutomata.time_eq_some_iff {C: FCellAutomata} {w t}:
+    C.time w = some t ↔ ∃ val, C.comp_accepts w t = some val ∧ ∀ i < t, C.comp_accepts w i = none := by
+  simp only [FCellAutomata.time_eq, find_some_idx_eq_some_iff]
+
+
+
 
 theorem FCellAutomata.comp_accepts_eq_config_accepts_comp {C: FCellAutomata} {w} {t}: C.comp_accepts w t = C.config_accepts (C.comp w t) := by
   simp [comp_accepts]
 
 theorem FCellAutomata.accepts_iff {C: FCellAutomata} {w}: C.accepts w ↔ find_some (C.comp_accepts w) = some true := by
   simp only [FCellAutomata.accepts, FCellAutomata.time_eq, find_some_idx, ←comp_accepts_eq_config_accepts_comp, find_some]
-  cases c: find_some_idxd (comp_accepts w)
+  cases c: find_some_idxd (C.comp_accepts w)
   case none =>
     simp_all
   case some val =>
@@ -417,7 +450,7 @@ def lemma_C' (C: FCellAutomata): FCellAutomata :=
     inv_fin_q := instFintypeProd C.Q (Option Bool),
     embed := fun a => (C.embed a, C.state_accepts (C.embed a)),
     border := (C.border, C.state_accepts C.border),
-    state_accepts | (_q, a) => a
+    state_accepts := Prod.snd
   }
 
 def FCellAutomata.F_pos { C': FCellAutomata } := { q: C'.Q | C'.state_accepts q = some true }
@@ -428,73 +461,84 @@ def FCellAutomata.accept_delta_closed (C: FCellAutomata) := C.delta_closed_set C
 noncomputable def FCellAutomata.time' (C: FCellAutomata) (w: Word): ℕ := (C.time w).getD 0
 
 
-theorem find_some_eq_val_at_find_some_idx {α} (f: ℕ → Option α): find_some f = f ((find_some_idx f).getD 0) := by
-  unfold find_some
-  unfold find_some_idx
-  cases c: find_some_idxd f
-  case none => simp [find_some_idxd_eq_none_iff.mp c]
-  case some val => simp [find_some_idxd_eq_some_iff.mp c]
-
-
 theorem FCellAutomata.accepts_iff_time (C: FCellAutomata) (w: Word):
     C.accepts w ↔ C.comp_accepts w (C.time' w) = some true := by
   unfold FCellAutomata.time'
   rw [time_eq]
   rw [C.accepts_iff]
-  rw [find_some_eq_val_at_find_some_idx (comp_accepts w)]
+  rw [find_some_eq_val_at_find_some_idx (C.comp_accepts w)]
 
 
+inductive TimeCases (C: FCellAutomata) (w): Prop
+| none (h1: C.time w = none) (h2: C.time' w = 0)
+| some t (h1: C.time w = some t) (h2: C.time' w = t)
+
+theorem tc C w: TimeCases C w := by
+  cases c: C.time w
+  case none => simp [TimeCases.none, c, FCellAutomata.time']
+  case some => simp [TimeCases.some, c, FCellAutomata.time']
+
+theorem comp_accepts_eq {C: FCellAutomata} {t: ℕ} {w: Word}: C.comp_accepts w t = C.state_accepts (C.comp w t 0) := by
+  simp [FCellAutomata.comp_accepts, FCellAutomata.config_accepts]
 
 
+@[simp]
+theorem accept_delta_closed' (C: FCellAutomata) (h: C.accept_delta_closed) (k: ℕ):
+    C.comp_accepts w (C.time' w + k) = C.comp_accepts w (C.time' w) := by
+  induction k
+  case zero => simp
+  case succ k ih =>
+    cases tc C w
+    case none h1 h2 => simp_all [FCellAutomata.time_eq_none_iff.mp h1]
+    case some t h1 h2 =>
+      simp_all only [h2]
+
+      have ⟨ accepts, ⟨ h_accepts, _ ⟩ ⟩ := FCellAutomata.time_eq_some_iff.mp h1
+
+      rw [←ih]
+      simp only [comp_accepts_eq] at *
+
+      have : (t + (k + 1)) = (t + k) + 1 := by omega
+      simp only [this, CellAutomata.comp_succ_eq]
+      set c := C.comp w (t + k)
+      unfold FCellAutomata.accept_delta_closed at h
+
+      cases c_accepts: accepts
+      case false =>
+        have : c 0 ∈ C.F_neg := by simp_all [FCellAutomata.F_neg]
+        have : (C.next c) 0 ∈ C.F_neg := CellAutomata.next_state_of_closed_set_state (h.2) this
+        have : C.state_accepts ((C.next c) 0) = some accepts := by simp_all [FCellAutomata.F_neg]
+        simp_all
+
+      case true =>
+        have : c 0 ∈ C.F_pos := by simp_all [FCellAutomata.F_pos]
+        have : (C.next c) 0 ∈ C.F_pos := CellAutomata.next_state_of_closed_set_state (h.1) this
+        have : C.state_accepts ((C.next c) 0) = some accepts := by simp_all [FCellAutomata.F_pos]
+        simp_all
 
 
 
 theorem accept_delta_closed (C: FCellAutomata) (h: C.accept_delta_closed) (k: ℕ):
   C.accepts w ↔ C.comp_accepts w (C.time' w + k) = some true
-:= by
-  induction k
-
-  case zero => simp [C.accepts_iff_time]
-  case succ t =>
-    sorry
-
-  constructor
-  · intro h
-    have ⟨ t, h ⟩ := h
-    use t
-    simp_all
-
-  intro h
-  have ⟨ t, h ⟩ := h
-
-  set r := find_some_idxd (C.comp_accepts w)
-  cases c: r
-  case mpr.none =>
-    simp [r] at c
-    rw [find_some_idxd_eq_none_iff] at c
-    simp_all
-
-  case mpr.some val =>
-    simp [r] at c
-    rw [find_some_idxd_eq_some_iff] at c
+:= by simp [accept_delta_closed' C h, C.accepts_iff_time]
 
 
 
-  use t
+lemma find_some_of_succ {α} (f: ℕ → Option α): find_some (find_some_bounded f ∘ Nat.succ) = find_some f := by
+  sorry
 
 
-
-theorem lemma_2_3_1_F_accept_delta_closed (C: FCellAutomata):
-  ∃ C': FCellAutomata,
+theorem lemma_2_3_1_F_accept_delta_closed (C: FCellAutomata.{u}):
+  ∃ C': FCellAutomata.{u},
     C'.L = C.L
-  ∧ DefinesTime.t C' = DefinesTime.t C
+  --∧ DefinesTime.t C' = DefinesTime.t C
   ∧ C'.accept_delta_closed
 := by
 
   let C': FCellAutomata := lemma_C' C
 
 
-  have h (w: Word) t i: C.comp w t i = (C'.comp w t i).fst  := by
+  have h1 (w: Word) t i: C.comp w t i = (C'.comp w t i).fst  := by
     induction t generalizing i with
     | zero =>
       simp [LCellAutomata.embed_word, C', lemma_C']
@@ -503,12 +547,13 @@ theorem lemma_2_3_1_F_accept_delta_closed (C: FCellAutomata):
       next h_1 => simp_all
 
     | succ t ih =>
-      sorry
+      simp_all [CellAutomata.comp_succ_eq, CellAutomata.next, C', lemma_C']
 
-  have h2 (w: Word) t: (C'.comp w t 0).snd = find_some_bounded (C.config_accepts ∘ C.comp w) (t + 1) := by
+
+  have h2 (w: Word) t: (C'.comp w t 0).snd = find_some_bounded (C.comp_accepts w) (t + 1) := by
     induction t with
     | zero =>
-      simp [C', LCellAutomata.embed_word, find_some_bounded_succ, FCellAutomata.config_accepts]
+      simp [C', LCellAutomata.embed_word, find_some_bounded_succ, FCellAutomata.config_accepts, FCellAutomata.comp_accepts]
 
       split
       · simp [lemma_C']
@@ -518,9 +563,9 @@ theorem lemma_2_3_1_F_accept_delta_closed (C: FCellAutomata):
       simp [CellAutomata.comp_succ_eq, CellAutomata.next]
       rw [find_some_bounded_succ]
       rw [←ih]
-      simp [CellAutomata.comp_succ_eq]
+      simp [CellAutomata.comp_succ_eq, FCellAutomata.comp_accepts]
       have : C.comp w t = Prod.fst ∘ C'.comp w t := by
-        have x := h w t
+        have x := h1 w t
         funext i
         simp_all
 
@@ -528,11 +573,47 @@ theorem lemma_2_3_1_F_accept_delta_closed (C: FCellAutomata):
       set c := C'.comp w t
       simp [FCellAutomata.config_accepts, CellAutomata.next, C', lemma_C']
 
+  have h3: C'.L = C.L := by
+    rw [L_eq_iff]
+    intro w
+    simp [FCellAutomata.accepts_iff]
+    have : C'.comp_accepts w = find_some_bounded (C.comp_accepts w) ∘ Nat.succ := by
+      funext t
+      rw [comp_accepts_eq]
+      conv =>
+        pattern C'.state_accepts
+        simp [C', lemma_C']
+      simp [h2]
+
+    rw [this]
+    simp [find_some_of_succ]
 
 
 
+  have h4: C'.accept_delta_closed := by
 
+    unfold FCellAutomata.accept_delta_closed
+    constructor
+    set val := true
+    pick_goal 2
+    set val := false
+    case left | right =>
+      suffices : ∀ a b c, C'.state_accepts b = some val → C'.state_accepts (C'.δ a b c) = some val
+      · simp_all [CellAutomata.delta_closed_set, FCellAutomata.F_pos, FCellAutomata.F_neg, val]
+      intro a b c h
 
+      suffices : (C'.δ a b c).snd = val
+      · simp_all [C', lemma_C']
+
+      have : b.snd = val := by
+        obtain ⟨ b1, b2 ⟩ := b
+        cases b2
+        · simp [C', lemma_C', C', lemma_C'] at h
+        · simp_all [C', lemma_C', C', lemma_C']
+
+      simp_all [C', lemma_C', val]
+
+  use C'
 
 
 
