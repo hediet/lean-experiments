@@ -1,33 +1,11 @@
 
 import Mathlib
+import CellularAutomatas.find_some_defs
+import CellularAutomatas.defs
 
 open Set List Nat
 
-structure Indexed (α: Type) where
-  val: α
-  idx: ℕ
-
-noncomputable def find_some_idxd { α } (f: ℕ → Option α): Option (Indexed α) :=
-  let _dec := Classical.dec;
-  if h: ∃ n, (f n).isSome = true
-  then let idx := Nat.find h; some ⟨ (f idx).get (Nat.find_spec h), idx ⟩
-  else none
-
-noncomputable def find_some { α } (f: ℕ → Option α) := Option.map Indexed.val (find_some_idxd f)
-noncomputable def find_some_idx { α } (f: ℕ → Option α) := Option.map Indexed.idx (find_some_idxd f)
-
-private def find_some_bounded_acc { α } (f: ℕ → Option α) (idx: ℕ): ℕ -> Option (Indexed α)
-| 0 => none
-| n + 1 =>
-  match f idx with
-  | some val => some ⟨ val, idx ⟩
-  | none => find_some_bounded_acc f (idx + 1) n
-
-def find_some_bounded_idx { α } (f: ℕ → Option α) (k: ℕ) := find_some_bounded_acc f 0 k
-
-def find_some_bounded { α } (f: ℕ → Option α) := Option.map Indexed.val ∘ find_some_bounded_idx f
-
-
+section find_some
 
 lemma find_some_idxd_eq_none_iff { α } { f: ℕ → Option α }: find_some_idxd f = none ↔ ∀ i, f i = none := by
   unfold find_some_idxd
@@ -117,7 +95,32 @@ lemma find_some_eq_some_iff { α } { f: ℕ → Option α } (val):
     have ⟨ a, h ⟩ := h
     use ⟨ val, a ⟩
 
-lemma unroll_all2 (b) (p: ℕ → Prop): (∀ j, b ≤ j → p j) ↔ p b ∧ ∀ j, b + 1 ≤ j → p j := by
+
+lemma find_some_eq_val_at_find_some_idx {α} (f: ℕ → Option α): find_some f = f ((find_some_idx f).getD 0) := by
+  unfold find_some
+  unfold find_some_idx
+  cases c: find_some_idxd f
+  case none => simp [find_some_idxd_eq_none_iff.mp c]
+  case some val => simp [find_some_idxd_eq_some_iff.mp c]
+
+lemma min_nat_eq {f: ℕ -> Option Bool}: min_nat { i | f i ≠ none } = find_some_idx f := by
+  unfold min_nat find_some_idx
+  cases c: find_some_idxd f
+  case none =>
+    rw [find_some_idxd_eq_none_iff] at c
+    simp [c]
+  case some val =>
+    rw [find_some_idxd_eq_some_iff] at c
+    have : ∃ n, ¬f n = none := by
+      use val.idx
+      simp [c]
+    simp_all [Nat.find_eq_iff]
+
+end find_some
+
+section find_some_bounded
+
+private lemma unroll_all (b) (p: ℕ → Prop): (∀ j, b ≤ j → p j) ↔ p b ∧ ∀ j, b + 1 ≤ j → p j := by
   apply Iff.intro
   · intro a
     simp_all only [le_refl, true_and]
@@ -134,20 +137,20 @@ lemma unroll_all2 (b) (p: ℕ → Prop): (∀ j, b ≤ j → p j) ↔ p b ∧ �
       simp_all
 
 
-private lemma find_some_bounded_acc_eq_none_iff { α } { f: ℕ → Option α } (s len): find_some_bounded_acc f s len = none ↔ ∀ j ∈ Set.Ico s (s + len), f j = none := by
+private lemma find_some_bounded_acc_eq_none_iff { α } { f: ℕ → Option α } (s len): find_some.find_some_bounded_acc f s len = none ↔ ∀ j ∈ Set.Ico s (s + len), f j = none := by
   induction len generalizing s
   case zero =>
-    unfold find_some_bounded_acc
+    unfold find_some.find_some_bounded_acc
     simp [imp_false, true_iff]
 
   case succ n ih =>
-    unfold find_some_bounded_acc
+    unfold find_some.find_some_bounded_acc
     have ih := ih (s+1)
     cases c: f s
     · simp [ih]
       conv =>
         arg 2
-        rw [unroll_all2]
+        rw [unroll_all]
 
       simp_all [c]
       have h: s + (n + 1) = s + 1 + n := by omega
@@ -165,14 +168,14 @@ lemma find_some_bounded_eq_none_iff { α } { f: ℕ → Option α } (k): find_so
   simp [find_some_bounded, find_some_bounded_idx_eq_none_iff]
 
 
-private lemma find_some_bounded_acc_eq_some_iff { α } { f: ℕ → Option α } (s len val): find_some_bounded_acc f s len = some val ↔ f val.idx = some val.val ∧ val.idx ∈ Set.Ico s (s + len) ∧ ∀ j ∈ Set.Ico s val.idx, f j = none := by
+private lemma find_some_bounded_acc_eq_some_iff { α } { f: ℕ → Option α } (s len val): find_some.find_some_bounded_acc f s len = some val ↔ f val.idx = some val.val ∧ val.idx ∈ Set.Ico s (s + len) ∧ ∀ j ∈ Set.Ico s val.idx, f j = none := by
   induction len generalizing s
   case zero =>
-    unfold find_some_bounded_acc
+    unfold find_some.find_some_bounded_acc
     simp
 
   case succ n ih =>
-    unfold find_some_bounded_acc
+    unfold find_some.find_some_bounded_acc
     have ih := ih (s+1)
     cases c: f s
     case none =>
@@ -181,7 +184,7 @@ private lemma find_some_bounded_acc_eq_some_iff { α } { f: ℕ → Option α } 
 
       conv =>
           arg 2
-          rw [unroll_all2]
+          rw [unroll_all]
 
       simp [c]
 
@@ -224,10 +227,9 @@ private lemma find_some_bounded_acc_eq_some_iff { α } { f: ℕ → Option α } 
           simp_all only [le_refl, reduceCtorEq]
 
 
-
-
 lemma find_some_bounded_idx_eq_some_iff { α } { f: ℕ → Option α } { k val }: find_some_bounded_idx f k = some val ↔ f val.idx = some val.val ∧ val.idx < k ∧ ∀ j < val.idx, f j = none := by
   simp [find_some_bounded_idx, find_some_bounded_acc_eq_some_iff]
+
 
 lemma find_some_bounded_eq_some_iff { α } { f: ℕ → Option α } { k val }: find_some_bounded f k = some val ↔ ∃ t, f t = some val ∧ t < k ∧ ∀ j < t, f j = none := by
   simp [find_some_bounded, find_some_bounded_idx_eq_some_iff]
@@ -266,46 +268,105 @@ lemma find_some_bounded_eq_none_iff_find_some_eq_none { α } { f: ℕ → Option
 
 
 
+lemma find_some_bounded_succ {α} (f: ℕ → Option α) (t): find_some_bounded f (t+1) = (find_some_bounded f t).or (f t) := by
+  cases c: (find_some_bounded f t).or (f t)
+  case none =>
+    simp_all [find_some_bounded_eq_none_iff]
+    intro j h
+    have hj := c.1 j
+    by_cases c2: j = t
+    · simp_all
+    · have := Nat.lt_succ_iff_lt_or_eq.mp h
+      simp_all
+  case some val =>
+    simp_all [find_some_bounded_eq_some_iff]
+    cases c
+    case inl h2 =>
+      have ⟨ t, h2 ⟩ := h2
+      use t
+      simp_all
+      omega
+    case inr h2 =>
+      simp [find_some_bounded_eq_none_iff] at h2
+      use t
+      simp_all
 
+@[simp]
+lemma find_some_bounded_zero {α} (f: ℕ → Option α): find_some_bounded f 0 = none := by
+  simp [find_some_bounded_eq_none_iff]
 
-structure RepeatingFunction (f: ℕ → M) where
+end find_some_bounded
+
+section RepeatingFunction
+
+structure RepeatingFunction {M} (f: ℕ → M) where
   k: ℕ
   inv: f '' univ = f '' { n | n < k }
 
 
-
-def iterative_function {M} (f: ℕ → M) := ∀ i j, f i = f j → f (i+1) = f (j+1)
-
-
-
-
-def k' (k a b: ℕ) := if k ≤ a then k else a + ((k-a) % b)
-
-lemma k'_bounded (k a b) (h: b > 0): k' k a b ≤ a + (b - 1) := by
-  unfold k'
-  by_cases c: k ≤ a
-  · simp [c]
-    omega
-  · simp [c]
-    have x := (Nat.mod_lt (k-a) h)
-    omega
+def repeating_function_of_composition { α β } { g: α → β } { f: ℕ → α } (h: RepeatingFunction f): RepeatingFunction (g ∘ f) := {
+  k := h.k
+  inv := by rw [image_comp, image_comp, h.inv]
+}
 
 
-def apply_iterated (f: α → α) (a: α) (k: ℕ) := Nat.iterate f k a
+lemma repeating_function_forall {α} { f: ℕ → α } (h: RepeatingFunction f) (p: α → Prop): (∀ i < h.k, p (f i)) ↔ (∀ i, p (f i)) := by
+  have x := h.inv
+  constructor
+  · intro h1
+    intro k
+    have : f k ∈ f '' univ := mem_image_of_mem f (mem_univ k)
+    rw [x] at this
+    obtain ⟨k', hk', eqfk⟩ := this
+    rw [←eqfk]
+    exact h1 k' hk'
+
+  · intro h1
+    intro k
+    intro h2
+    exact (h1 k)
+
+
+lemma find_some_bounded_idx_eq_find_some_idxd_of_repeating_function { α } { f: ℕ → Option α } (h: RepeatingFunction f):
+    find_some_bounded_idx f h.k = find_some_idxd f := by
+  cases c: find_some_bounded_idx f h.k
+  case some val =>
+    simp [find_some_bounded_idx_eq_some_iff] at c
+    apply Eq.symm
+    simp [find_some_idxd_eq_some_iff]
+    simp [c]
+    exact c.2.2
+
+  case none =>
+    simp [find_some_bounded_idx_eq_none_iff] at c
+    apply Eq.symm
+    rw [find_some_idxd_eq_none_iff]
+    simp_all [repeating_function_forall h (fun val => val = none)]
+
+lemma find_some_bounded_eq_find_some_of_repeating_function { α } { f: ℕ → Option α } (h: RepeatingFunction f):
+    find_some_bounded f h.k = find_some f := by
+  simp [find_some_bounded, find_some, find_some_bounded_idx_eq_find_some_idxd_of_repeating_function]
+
+
+end RepeatingFunction
+
+section apply_iterated
 
 @[simp]
-theorem apply_iterated_fixed {α: Type u} {m: α} {f: α -> α} {t: ℕ} (h: f m = m): apply_iterated f m t = m := by
+lemma apply_iterated_fixed {α: Type u} {m: α} {f: α -> α} {t: ℕ} (h: f m = m): apply_iterated f m t = m := by
   unfold apply_iterated
   apply Function.iterate_fixed h
 
 @[simp]
-theorem apply_iterated_zero {α: Type u} {m: α} {f: α -> α}: apply_iterated f m 0 = m := by
+lemma apply_iterated_zero {α: Type u} {m: α} {f: α -> α}: apply_iterated f m 0 = m := by
   simp [apply_iterated]
 
-theorem apply_iterated_succ_apply' {α: Type u} {m: α} {f: α -> α}: apply_iterated f m (n+1) = f (apply_iterated f m n) := by
+lemma apply_iterated_succ_apply' {α: Type u} {m: α} {f: α -> α}: apply_iterated f m (n+1) = f (apply_iterated f m n) := by
   simp [apply_iterated, Function.iterate_succ_apply']
 
-lemma f_not_inj (h: Fintype M) (f: ℕ → M): ∃ b, ∃ a < b, b ≤ h.card ∧ f a = f b := by
+
+
+private lemma f_not_inj (h: Fintype M) (f: ℕ → M): ∃ b, ∃ a < b, b ≤ h.card ∧ f a = f b := by
   set n := Fintype.card M + 1 with nh
 
   let f' : Fin n → M := fun i => f i.val
@@ -326,7 +387,20 @@ lemma f_not_inj (h: Fintype M) (f: ℕ → M): ∃ b, ∃ a < b, b ≤ h.card �
   · omega
   · exact hne
 
-lemma apply_iterated_mod {M} (h: Fintype M) (f: M -> M) (m:M): ∃ a b, a + (b - 1) < h.card ∧ b > 0 ∧ ∀ k, (apply_iterated f m) k = (apply_iterated f m) (k' k a b) := by
+private def k' (k a b: ℕ) := if k ≤ a then k else a + ((k-a) % b)
+
+private lemma k'_bounded (k a b) (h: b > 0): k' k a b ≤ a + (b - 1) := by
+  unfold k'
+  by_cases c: k ≤ a
+  · simp [c]
+    omega
+  · simp [c]
+    have x := (Nat.mod_lt (k-a) h)
+    omega
+
+
+private lemma apply_iterated_mod {M} (h: Fintype M) (f: M -> M) (m:M):
+    ∃ a b, a + (b - 1) < h.card ∧ b > 0 ∧ ∀ k, (apply_iterated f m) k = (apply_iterated f m) (k' k a b) := by
   have ⟨ b, a, h ⟩  := f_not_inj h (apply_iterated f m)
   set g := apply_iterated f m
   use a
@@ -386,7 +460,6 @@ lemma apply_iterated_mod {M} (h: Fintype M) (f: M -> M) (m:M): ∃ a b, a + (b -
 
   have xx: a + (k - a - bb * x) ≥ a := by omega
 
-  --have xx1: (k - a - bb * x ≥ 0) := sorry
   have xx2: k - a ≥ bb * x := by
     unfold x
     have := Nat.mul_le_of_le_div bb ((k-a)/bb) (k-a) (le_refl _)
@@ -400,7 +473,6 @@ lemma apply_iterated_mod {M} (h: Fintype M) (f: M -> M) (m:M): ∃ a b, a + (b -
     rw [m1 _ x xx]
   apply congrArg
   omega
-
 
 
 
@@ -425,43 +497,4 @@ def repeating_function_of_iterate_fin_type { M } (h: Fintype M) { f: M → M } (
       aesop
 }
 
-def repeating_function_of_composition { α β } { g: α → β } { f: ℕ → α } (h: RepeatingFunction f): RepeatingFunction (g ∘ f) := {
-  k := h.k
-  inv := by rw [image_comp, image_comp, h.inv]
-}
-
-
-lemma repeating_function_forall {α} { f: ℕ → α } (h: RepeatingFunction f) (p: α → Prop): (∀ i < h.k, p (f i)) ↔ (∀ i, p (f i)) := by
-  have x := h.inv
-  constructor
-  · intro h1
-    intro k
-    have : f k ∈ f '' univ := mem_image_of_mem f (mem_univ k)
-    rw [x] at this
-    obtain ⟨k', hk', eqfk⟩ := this
-    rw [←eqfk]
-    exact h1 k' hk'
-
-  · intro h1
-    intro k
-    intro h2
-    exact (h1 k)
-
-
-lemma find_some_bounded_idx_eq_find_some_idxd_of_repeating_function { α } { f: ℕ → Option α } (h: RepeatingFunction f): find_some_bounded_idx f h.k = find_some_idxd f := by
-  cases c: find_some_bounded_idx f h.k
-  case some val =>
-    simp [find_some_bounded_idx_eq_some_iff] at c
-    apply Eq.symm
-    simp [find_some_idxd_eq_some_iff]
-    simp [c]
-    exact c.2.2
-
-  case none =>
-    simp [find_some_bounded_idx_eq_none_iff] at c
-    apply Eq.symm
-    rw [find_some_idxd_eq_none_iff]
-    simp_all [repeating_function_forall h (fun val => val = none)]
-
-lemma find_some_bounded_eq_find_some_of_repeating_function { α } { f: ℕ → Option α } (h: RepeatingFunction f): find_some_bounded f h.k = find_some f := by
-  simp [find_some_bounded, find_some, find_some_bounded_idx_eq_find_some_idxd_of_repeating_function]
+end apply_iterated

@@ -3,56 +3,6 @@ import CellularAutomatas.defs
 import CellularAutomatas.common
 import CellularAutomatas.find_some
 
-theorem find_some_bounded_succ {α} (f: ℕ → Option α) (t): find_some_bounded f (t+1) = (find_some_bounded f t).or (f t) := by
-  cases c: (find_some_bounded f t).or (f t)
-  case none =>
-    simp_all [find_some_bounded_eq_none_iff]
-    intro j h
-    have hj := c.1 j
-    by_cases c2: j = t
-    · simp_all
-    · have := Nat.lt_succ_iff_lt_or_eq.mp h
-      simp_all
-  case some val =>
-    simp_all [find_some_bounded_eq_some_iff]
-    cases c
-    case inl h2 =>
-      have ⟨ t, h2 ⟩ := h2
-      use t
-      simp_all
-      omega
-    case inr h2 =>
-      simp [find_some_bounded_eq_none_iff] at h2
-      use t
-      simp_all
-
-@[simp]
-theorem find_some_bounded_zero {α} (f: ℕ → Option α): find_some_bounded f 0 = none := by
-  simp [find_some_bounded_eq_none_iff]
-
-
-theorem find_some_eq_val_at_find_some_idx {α} (f: ℕ → Option α): find_some f = f ((find_some_idx f).getD 0) := by
-  unfold find_some
-  unfold find_some_idx
-  cases c: find_some_idxd f
-  case none => simp [find_some_idxd_eq_none_iff.mp c]
-  case some val => simp [find_some_idxd_eq_some_iff.mp c]
-
-
-
-theorem min_nat_eq {f: ℕ -> Option Bool}: min_nat { i | f i ≠ none } = find_some_idx f := by
-  unfold min_nat find_some_idx
-  cases c: find_some_idxd f
-  case none =>
-    rw [find_some_idxd_eq_none_iff] at c
-    simp [c]
-  case some val =>
-    rw [find_some_idxd_eq_some_iff] at c
-    have : ∃ n, ¬f n = none := by
-      use val.idx
-      simp [c]
-    simp_all [Nat.find_eq_iff]
-
 theorem δδt_succ {C: CellAutomata} {q: C.Q} {t: ℕ} : δδt q (t + 1) = δδ (δδt q t) := by
   simp [δδt, apply_iterated_succ_apply']
 
@@ -72,6 +22,14 @@ theorem CellAutomata.next_state_of_closed_set_state
 
 
 variable [Alphabet]
+
+
+@[simp]
+theorem empty_word_range: Word.range [] = {} := by
+  unfold Word.range
+  ext x
+  simp_all
+
 
 @[simp]
 theorem LCellAutomata.comp_zero {C: LCellAutomata} {w}: C.comp w 0 = C.embed_word w := by rfl
@@ -111,11 +69,7 @@ theorem FCellAutomata.accepts_iff {C: FCellAutomata} {w}: C.accepts w ↔ find_s
 
 def uniform_config {C: CellAutomata} (q: C.Q): Config C.Q := fun _ => q
 
-@[simp]
-theorem empty_word_range: Word.range [] = {} := by
-  unfold Word.range
-  ext x
-  simp_all
+
 
 theorem FCellAutomata.empty_word_config_eq_uniform_border {C: FCellAutomata}: C.embed_word [] = uniform_config C.border := by
   funext i
@@ -453,11 +407,6 @@ def lemma_C' (C: FCellAutomata): FCellAutomata :=
     state_accepts := Prod.snd
   }
 
-def FCellAutomata.F_pos { C': FCellAutomata } := { q: C'.Q | C'.state_accepts q = some true }
-def FCellAutomata.F_neg { C': FCellAutomata } := { q: C'.Q | C'.state_accepts q = some false }
-
-def FCellAutomata.accept_delta_closed (C: FCellAutomata) := C.delta_closed_set C.F_pos ∧ C.delta_closed_set C.F_neg
-
 noncomputable def FCellAutomata.time' (C: FCellAutomata) (w: Word): ℕ := (C.time w).getD 0
 
 
@@ -672,9 +621,6 @@ def OCA_R { β: Type u } [Coe β CellAutomata] (set: Set β): Set β :=
 def with_time { β: Type u } [DefinesTime β] (fns: Set (ℕ → ℕ)) (set: Set β): Set β :=
   fun ca => ca ∈ set ∧ halts ca ∧ ((h: halts ca) → ((t_max' ca h) ∈ fns))
 
-
-syntax term "&" term : term
-macro_rules | `($a & $b) => `($b $a)
 
 syntax "t⦃" term "⦄" : term
 macro_rules | `(t⦃ $expr ⦄) => `(with_time { fun $(Lean.mkIdent `n) => $expr })
