@@ -20,6 +20,12 @@ lemma find_some_idxd_eq_none_iff { α } { f: ℕ → Option α }: find_some_idxd
   case neg h =>
     simp_all [h]
 
+lemma find_some_idx_eq_none_iff { α } { f: ℕ → Option α }: find_some_idx f = none ↔ ∀ i, f i = none := by
+  simp [find_some_idx, find_some_idxd_eq_none_iff]
+
+lemma find_some_eq_none_iff { α } { f: ℕ → Option α }: find_some f = none ↔ ∀ i, f i = none := by
+  simp [find_some, find_some_idxd_eq_none_iff]
+
 lemma find_some_idxd_eq_some_iff { α } { f: ℕ → Option α } {val}: find_some_idxd f = some val ↔ f val.idx = some val.val ∧ ∀ i < val.idx, f i = none := by
   let _dec := Classical.dec;
   unfold find_some_idxd
@@ -49,25 +55,7 @@ lemma find_some_idxd_eq_some_iff { α } { f: ℕ → Option α } {val}: find_som
     simp_all
 
 
-lemma find_some_idx_eq_none_iff { α } { f: ℕ → Option α }: find_some_idx f = none ↔ ∀ i, f i = none := by
-  simp [find_some_idx, find_some_idxd_eq_none_iff]
-
 lemma find_some_idx_eq_some_iff { α } { f: ℕ → Option α }:
-    find_some_idx f = some t ↔ ∃ val, f t = some val ∧ ∀ i < t, f i = none := by
-  unfold find_some_idx
-  simp [find_some_idxd_eq_some_iff]
-  constructor
-  · intro h
-    have ⟨ a, h ⟩ := h
-    constructor
-    · use a.val
-      simp [←h.2, h.1]
-    · simp_all
-  · intro h
-    have ⟨ ⟨ val, h ⟩, h2 ⟩ := h
-    use ⟨ val, t ⟩
-
-lemma find_some_idx_eq_some_iff' { α } { f: ℕ → Option α }:
     find_some_idx f = some t ↔ ∃ val, f t = some val ∧ ∀ i < t, f i = none := by
   unfold find_some_idx
   simp [find_some_idxd_eq_some_iff]
@@ -294,6 +282,31 @@ lemma find_some_bounded_succ {α} (f: ℕ → Option α) (t): find_some_bounded 
 @[simp]
 lemma find_some_bounded_zero {α} (f: ℕ → Option α): find_some_bounded f 0 = none := by
   simp [find_some_bounded_eq_none_iff]
+
+@[simp]
+lemma find_some_of_succ {α} (f: ℕ → Option α): find_some (find_some_bounded f ∘ Nat.succ) = find_some f := by
+  cases c: find_some (find_some_bounded f ∘ Nat.succ)
+  case none =>
+    rw [eq_comm, find_some_eq_none_iff]
+    intro i
+    simp only [find_some_eq_none_iff, Function.comp_apply, Nat.succ_eq_add_one, find_some_bounded_eq_none_iff] at c
+    simp [c i i]
+  case some val =>
+    rw [eq_comm]
+    rw [find_some_eq_some_iff] at c
+    rw [find_some_eq_some_iff]
+    obtain ⟨ t', c ⟩ := c
+    simp at c
+    rw [find_some_bounded_eq_some_iff] at c
+    conv at c =>
+      pattern find_some_bounded _ _ = none
+      rw [find_some_bounded_eq_none_iff]
+    obtain ⟨ t, th ⟩ := c.1
+    use t
+    constructor
+    · simp [th]
+    intro j
+    exact th.2.2 j
 
 end find_some_bounded
 

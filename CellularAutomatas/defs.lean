@@ -90,7 +90,9 @@ def ℒ {CA} [DefinesLanguage CA] (s: (Set CA)): Set (Language α) :=
   fun L => ∃ ca: CA, ca ∈ s ∧ L = DefinesLanguage.L ca
 
 class DefinesTime (CA: Type u) where
-  t: CA -> Word → WithTop ℕ
+  time: CA -> Word → WithTop ℕ
+
+noncomputable def time' [DefinesTime CA] (C: CA) (w: Word): ℕ := (DefinesTime.time C w).getD 0
 
 end LanguageDefinitions
 
@@ -153,7 +155,7 @@ instance : DefinesLanguage FCellAutomata where
   L ca := ca.L
 
 noncomputable instance : DefinesTime FCellAutomata where
-  t ca w := ca.time w
+  time ca w := ca.time w
 
 instance : Coe FCellAutomata CellAutomata where
   coe ca := ca.toCellAutomata
@@ -175,7 +177,7 @@ instance : DefinesLanguage tCellAutomata where
   L ca := ca.L
 
 instance : DefinesTime tCellAutomata where
-  t ca w := some (ca.t w.length)
+  time ca w := some (ca.t w.length)
 
 instance : Coe tCellAutomata CellAutomata where
   coe ca := ca.toCellAutomata
