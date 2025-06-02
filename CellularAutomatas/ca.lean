@@ -21,6 +21,17 @@ lemma CellAutomata.next_state_of_closed_set_state
   exact h1 (c (i - 1)) ⟨c i, h2⟩ (c (i + 1))
 
 
+lemma CellAutomata.passive_of_dead {C: CellAutomata} {q: C.Q} (h: C.dead q): C.passive q := by
+  unfold CellAutomata.passive
+  intro a b c
+  unfold CellAutomata.dead at h
+  unfold CellAutomata.delta_closed_set at h
+  simp_all only [Set.mem_singleton_iff, Subtype.forall, forall_eq]
+  obtain ⟨a, a_h⟩ := a
+  obtain ⟨b, b_h⟩ := b
+  obtain ⟨c, c_h⟩ := c
+  simp_all only
+  simp_all only [Set.mem_singleton_iff]
 
 variable [Alphabet]
 

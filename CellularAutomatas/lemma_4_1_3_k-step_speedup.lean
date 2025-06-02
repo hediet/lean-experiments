@@ -13,13 +13,19 @@ lemma comp0 (C: LCellAutomata) (c: Config C.Q): C.nextt c 0 = c := by sorry
 @[simp]
 lemma comp1 (C: LCellAutomata) (c: Config C.Q): C.nextt c 1 = C.next c := by sorry
 
-
-theorem linear_time_dead_border (C: FCellAutomata): ∃ C': FCellAutomata,
+/-
+theorem FCellAutomata.linear_time_dead_border (C: FCellAutomata): ∃ C': FCellAutomata,
     C'.L = C.L
     ∧ C'.time = C.time
     ∧ C'.dead C'.border := by
   sorry
+-/
 
+theorem tCellAutomata.linear_time_dead_border (C: tCellAutomata) (h: ∃ c, ∀ n, C.t n ≤ c * n): ∃ C': tCellAutomata,
+    C'.L = C.L
+    ∧ C'.t = C.t
+    ∧ C'.dead C'.border := by
+  sorry
 
 def φ {C: LCellAutomata} (b: C.Q) (c: C.Q) := (b, fun a => C.δ a b c)
 
@@ -100,41 +106,59 @@ private lemma snd_prop (C: LCellAutomata) (w) (t: ℕ) (i: ℤ) (h: t + i + 1 �
     rw [←CellAutomata.next]
     rw [←CellAutomata.comp_succ_eq]
 
+lemma tCellAutomata.accepts_empty_passive {C: tCellAutomata} (h: C.passive C.border):
+    C.L [] ↔ C.border ∈ C.F_pos := by
+  sorry
 
+lemma tCellAutomata.accepts_empty_iff {C: tCellAutomata}:
+    C.L [] ↔ δδt C.border (C.t 0) ∈ C.F_pos := by
+  sorry
 
-theorem one_step_speed_up (C: tCellAutomata.{u}) (h: ∀ n, C.t n ≥ n):
+theorem one_step_speed_up (C: tCellAutomata.{u}) (h1: ∀ n, C.t n ≥ n) (h2: ∃ c, ∀ n, C.t n ≤ c * n):
   ∃ C': tCellAutomata.{u},
     C'.L = C.L
     ∧ C'.t = Nat.pred ∘ C.t := by
 
-  set LC' := Sp C.toLCellAutomata
-  set t' := Nat.pred ∘ C.t
-  set F_pos' := fun (s: LC'.Q) => s.snd (C.border) ∈ C.F_pos
+  have ⟨ C'', C''_L, C''_t, C''_dead ⟩ := tCellAutomata.linear_time_dead_border C h2
+
+
+
+  set LC' := Sp C''.toLCellAutomata
+  set t' := Nat.pred ∘ C''.t
+  set F_pos' := fun (s: LC'.Q) => s.snd (C''.border) ∈ C''.F_pos
   set C' := tCellAutomata.mk LC' t' F_pos'
   use C'
   constructor
-  case h.right => simp [t', C']
+  case h.right => simp [t', C', C''_t]
+
+  rw [←C''_L]
 
   funext w
   set n := w.length
 
   cases c: n
-  case h.left.h.zero => sorry
+  case h.left.h.zero =>
+    have : w = [] := by simp_all only [ge_iff_le, List.length_eq_zero_iff, t', C', n]
+    have border_passive := (CellAutomata.passive_of_dead C''_dead)
+    simp [this, tCellAutomata.accepts_empty_passive border_passive]
+    sorry
+
   case h.left.h.succ n' =>
 
-  suffices : ((C'.comp w (t' n) 0).snd C.border ∈ C.F_pos) ↔ C.comp w (C.t n) 0 ∈ C.F_pos
+  suffices : ((C'.comp w (t' n) 0).snd C''.border ∈ C''.F_pos) ↔ C''.comp w (C''.t n) 0 ∈ C''.F_pos
   · sorry
-  have : C.comp w ((C.t n)-1) (0-1) = C.border := sorry
+  have : C''.comp w ((C''.t n)-1) (0-1) = C''.border := sorry
   rw [←this]
   simp only [Function.comp_apply, Nat.pred_eq_sub_one, C', LC', t']
-  have x := snd_prop C.toLCellAutomata w ((C.t n)-1) 0 (sorry)
+  have x := snd_prop C''.toLCellAutomata w ((C''.t n)-1) 0 (sorry)
   rw [x]
 
-  have : C.t n - 1 + 1 = C.t n := by
-    have : C.t n > 0 := by
-      have : C.t n ≥ n := h n
+  have : C''.t n - 1 + 1 = C''.t n := by
+    have : C''.t n > 0 := by
+      have : C''.t n ≥ n := by simp_all [h1 n]
       omega
     omega
+
   simp [this]
 
 /-
