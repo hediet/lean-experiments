@@ -186,9 +186,17 @@ theorem one_step_speed_up (C: tCellAutomata.{u}) (h1: ∀ n, C.t n ≥ n) (h2: �
   have : w.length = n := by simp [n]
   rw [this]
 
-  have : C.t n ≥ 1 := sorry
+  suffices : ↑(C.t n - 1) + 0 + (1: ℤ) = C.t n;
+  · rw [this]
+    simp [h1]
 
-  sorry
+  have : C.t n ≥ 1 := by
+    rw [c]
+    have := h1 (n' + 1)
+    omega
+
+  omega
+
 
 /-
 theorem const_speed_up (k: ℕ): ℒ (tCellAutomatas |> with_time { f | ∃ k, ∀ n, C.t n ≤ n + k  }) = ℒ (RT) := sorry
