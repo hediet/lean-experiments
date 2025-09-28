@@ -124,6 +124,8 @@ lemma tCellAutomata.accepts_empty_iff {C: tCellAutomata}:
   sorry
 
 
+lemma CellAutomata.dead_border_comp {C: LCellAutomata} (h: C.dead C.border) (w: Word) (t: ℕ) {n: ℤ} (h2: n ∉ w.range):
+    C.comp w t n = C.border := sorry
 
 theorem one_step_speed_up (C: tCellAutomata.{u}) (h1: ∀ n, C.t n ≥ n) (h2: ∃ c, ∀ n, C.t n ≤ c * n):
   ∃ C': tCellAutomata.{u},
@@ -165,8 +167,16 @@ theorem one_step_speed_up (C: tCellAutomata.{u}) (h1: ∀ n, C.t n ≥ n) (h2: �
   case h.left.h.succ n' =>
 
   suffices : ((C'.comp w (t' n) 0).snd C''.border ∈ C''.F_pos) ↔ C''.comp w (C''.t n) 0 ∈ C''.F_pos
-  · sorry
-  have : C''.comp w ((C''.t n)-1) (0-1) = C''.border := sorry
+  · have r : (C'.comp w (t' n) 0).snd C''.border ∈ C''.F_pos ↔ (C'.comp w (t' n) 0) ∈ C'.F_pos := by simp [C', F_pos']
+    rw [r] at this
+    simp [n] at this
+    simp [tCellAutomata.L]
+    exact this
+
+  have : C''.comp w ((C''.t n)-1) (0-1) = C''.border := by
+    apply CellAutomata.dead_border_comp
+    · simp_all
+    · simp [Word.range]
   rw [←this]
   simp only [Function.comp_apply, Nat.pred_eq_sub_one, C', LC', t']
   have x := snd_prop C''.toLCellAutomata w ((C''.t n)-1) 0
