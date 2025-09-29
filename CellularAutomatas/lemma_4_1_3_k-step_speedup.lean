@@ -148,29 +148,82 @@ theorem one_step_speed_up_dead (C: tCellAutomata.{u}) (h1: ∀ n, C.t n ≥ n) (
 
   omega
 
-theorem tCellAutomata.linear_time_dead_border (C: tCellAutomata) (h: ∃ c, ∀ n, C.t n ≤ c * n): ∃ C': tCellAutomata,
+theorem tCellAutomata.linear_time_dead_border (C: tCellAutomata) (h: ∃ c, ∀ n, C.t n ≤ c * (n + 1)): ∃ C': tCellAutomata,
     C'.L = C.L
     ∧ C'.t = C.t
     ∧ C'.dead C'.border := by
   sorry
 
 
-theorem one_step_speed_up (C: tCellAutomata.{u}) (h1: ∀ n, C.t n ≥ n) (h2: ∃ c, ∀ n, C.t n ≤ c * n):
+theorem one_step_speed_up (C: tCellAutomata.{u}) (h1: ∃ c, ∀ n, C.t n ≤ c * (n + 1)) (h2: ∀ n, C.t n ≥ n):
   ∃ C': tCellAutomata.{u},
     C'.L = C.L
     ∧ C'.t = Nat.pred ∘ C.t := by
 
-  have ⟨ C'', C''_L, C''_t, C''_dead ⟩ := tCellAutomata.linear_time_dead_border C h2
-  rw [←C''_t] at h1
+  have ⟨ C'', C''_L, C''_t, C''_dead ⟩ := tCellAutomata.linear_time_dead_border C h1
+  rw [←C''_t] at h2
   rw [←C''_L, ←C''_t]
-  apply one_step_speed_up_dead C'' h1 C''_dead
+  apply one_step_speed_up_dead C'' h2 C''_dead
 
 
-/-
-theorem const_speed_up (k: ℕ): ℒ (tCellAutomatas |> with_time { f | ∃ k, ∀ n, C.t n ≤ n + k  }) = ℒ (RT) := sorry
+
+private lemma speed_up_k (C : tCellAutomata.{u}) (k: ℕ) (h1: ∃ c, ∀ n, C.t n ≤ c * (n + 1)) (h2 : ∀ n, C.t n ≥ n + k - 1):
+    ∃ C': tCellAutomata.{u},
+      C'.L = C.L
+      ∧ C'.t = (Nat.iterate Nat.pred k) ∘ C.t := by
+induction k generalizing C with
+| zero =>
+  use C
+  simp
+| succ k ih =>
+  obtain ⟨ C', h'_L, h'_t ⟩ := one_step_speed_up C h1 (by intro n; specialize h2 n; omega)
+  obtain ⟨ C'', h''_L, h''_t ⟩ := ih C' (by
+    obtain ⟨ c, hc ⟩ := h1
+    use c
+    intro n
+    specialize hc n
+    rw [h'_t]
+    simp
+    omega
+  ) (by
+    intro n
+    specialize h2 n
+    rw [h'_t]
+    simp
+    omega
+  )
+  use C''
+  simp_all [Function.comp_assoc]
 
 
-theorem const_speed_up1: ℒ (tCellAutomatas |> t⦃ n - 1 + k + 1 ⦄) = ℒ (tCellAutomatas |> t⦃ n - 1 + k ⦄) := sorry
 
+-- question: Why do I need .{u} here twice?
+theorem const_speed_up: ℒ ({ C ∈ tCellAutomatas.{u} | ∃ k, ∀ n, C.t n = n + k - 1 }) = ℒ (RT.{u}) := by
+  apply Set.Subset.antisymm
+  · intro L ⟨ C, hL1, hL2 ⟩
+    simp [tCellAutomatas] at hL1
+    obtain ⟨ k, hk ⟩ := hL1
 
--/
+    have ⟨ C', h ⟩ := speed_up_k C k (by use (k+1); intro n; specialize hk n; rw [hk]; grind ) (by simp [hk])
+    use C'
+    constructor
+    · unfold RT
+      constructor
+      · simp [tCellAutomatas]
+      intro n
+
+      specialize hk n
+      rw [h.2, Function.comp_apply, hk, Nat.pred_iterate]
+      omega
+
+    · simp [DefinesLanguage.L, h.1, hL2]
+
+  · intro L ⟨ C, hL1, hL2 ⟩
+    simp [RT] at hL1
+    use C
+    constructor
+    · simp [tCellAutomatas]
+      use 0
+      intro n
+      simp [hL1.2 n]
+    · simp_all

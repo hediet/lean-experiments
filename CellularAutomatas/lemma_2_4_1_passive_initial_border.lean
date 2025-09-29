@@ -150,7 +150,7 @@ theorem lemma_2_4_1_passive_initial_border (C: FCellAutomata.{u}):
       simp [FCellAutomata.config_accepts]
       rw [C'_comp]
       simp [C', cC', state_accepts', Word.zero_mem_cone c]
-      exact c -- Remove exact, why ???
+      exact c -- question: why do I need exact?
 
     case neg =>
       simp at c

@@ -8,22 +8,8 @@ import CellularAutomatas.ca
 variable [Alphabet]
 
 
+
 /-
-
-noncomputable def t_max [DefinesTime CA] (ca: CA) (n: ℕ): WithTop ℕ :=
-  Finset.max' ((time ca '' { w: Word | w.length = n }).toFinset) (by sorry)
-
-def halts [DefinesTime CA] (ca: CA): Prop :=
-  ∀ n: ℕ, t_max ca n ≠ none
-
-def with_time { β: Type u } [DefinesTime β] (fns: Set (ℕ → ℕ)) (set: Set β): Set β :=
-  fun ca => ca ∈ set ∧ halts ca ∧ ((h: halts ca) → ((t_max' ca h) ∈ fns))
-
-
-syntax "t⦃" term "⦄" : term
-macro_rules | `(t⦃ $expr ⦄) => `(with_time { fun $(Lean.mkIdent `n) => $expr })
-
-def RT := tCellAutomatas |> t⦃ n - 1 ⦄
 
 
 

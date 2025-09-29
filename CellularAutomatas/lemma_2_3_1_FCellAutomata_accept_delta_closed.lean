@@ -21,7 +21,8 @@ def cC' (C: FCellAutomata): FCellAutomata :=
     state_accepts := Prod.snd
   }
 
-
+-- I believe it is possible to make this more strict by requiring Fneg and Fpos to be one-element sets.
+-- For this, the border can be used to identify cell 0. Once cell 0 is in an accepting or rejecting state it will not update anymore.
 theorem lemma_2_3_1_FCellAutomata_accept_delta_closed (C: FCellAutomata.{u}):
   ∃ C': FCellAutomata.{u},
     C'.L = C.L
@@ -43,7 +44,7 @@ theorem lemma_2_3_1_FCellAutomata_accept_delta_closed (C: FCellAutomata.{u}):
       next h_1 => simp_all
 
     | succ t ih =>
-      simp_all [CellAutomata.comp_succ_eq, CellAutomata.next, C', cC']
+      simp_all [LCellAutomata.comp_succ_eq, CellAutomata.next, C', cC']
 
 
   have h2 (w: Word) t: (C'.comp w t 0).snd = find_some_bounded (C.comp_accepts w) (t + 1) := by
@@ -56,10 +57,10 @@ theorem lemma_2_3_1_FCellAutomata_accept_delta_closed (C: FCellAutomata.{u}):
       · simp [cC']
 
     | succ t ih =>
-      simp [CellAutomata.comp_succ_eq, CellAutomata.next]
+      simp [LCellAutomata.comp_succ_eq, CellAutomata.next]
       rw [find_some_bounded_succ]
       rw [←ih]
-      simp [CellAutomata.comp_succ_eq, FCellAutomata.comp_accepts]
+      simp [LCellAutomata.comp_succ_eq, FCellAutomata.comp_accepts]
       have : C.comp w t = Prod.fst ∘ C'.comp w t := by
         have x := h1 w t
         funext i

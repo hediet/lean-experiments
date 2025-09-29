@@ -86,7 +86,7 @@ section LanguageDefinitions
 class DefinesLanguage (CA: Type u) where
   L: CA -> Language α
 
-def ℒ {CA} [DefinesLanguage CA] (s: (Set CA)): Set (Language α) :=
+def ℒ {CA: Type u} [DefinesLanguage CA] (s: (Set CA)): Set (Language α) :=
   fun L => ∃ ca: CA, ca ∈ s ∧ L = DefinesLanguage.L ca
 
 class DefinesTime (CA: Type u) where
@@ -183,3 +183,22 @@ instance : Coe tCellAutomata CellAutomata where
   coe ca := ca.toCellAutomata
 
 end tCellAutomata
+
+noncomputable def t_max [DefinesTime CA] (ca: CA) (n: ℕ): WithTop ℕ :=
+  sSup (DefinesTime.time ca '' { w : Word | w.length = n })
+
+def halts [DefinesTime CA] (ca: CA): Prop :=
+  ∀ n: ℕ, t_max ca n ≠ none
+
+noncomputable def t_max' [DefinesTime CA] (ca: CA) (h: halts ca) (n: ℕ): ℕ :=
+  (t_max ca n).get (by simp_all[halts, Option.isSome_iff_ne_none])
+
+
+def with_time { β: Type u } [DefinesTime β] (fns: Set (ℕ → ℕ)) (set: Set β): Set β :=
+  fun ca => ca ∈ set ∧ halts ca ∧ ((h: halts ca) → ((t_max' ca h) ∈ fns))
+
+
+syntax "t⦃" term "⦄" : term
+macro_rules | `(t⦃ $expr ⦄) => `(with_time { fun $(Lean.mkIdent `n) => $expr })
+
+def RT := { C ∈ tCellAutomatas | ∀ n, C.t n = n - 1 }
